@@ -108,7 +108,10 @@ function renderDashboard(data, displayName) {
     `Lat ${Number(data.latitude).toFixed(4)} | Lon ${Number(data.longitude).toFixed(4)} | ${formatDate(data.analysed_at)}`;
   document.getElementById('activity-score').textContent = Number(data.activity_score).toFixed(1);
   document.getElementById('activity-label').textContent = data.activity_label;
-  document.getElementById('stress-index').textContent = data.pollination_stress_index;
+  document.getElementById('stress-index').textContent = data._meta?.overall_stress == null
+    ? data.pollination_stress_index
+    : `${Math.round(Number(data._meta.overall_stress) * 100)}%`;
+  document.getElementById('stress-label').textContent = data.pollination_stress_index || 'index';
   document.getElementById('habitat-score').textContent = Number(data.habitat_suitability_score).toFixed(1);
 
   renderFactors(data._meta?.raw_factor_stress || {});
@@ -305,7 +308,7 @@ function pollinationBar(item, index) {
   const max = Number.isFinite(item.max) && item.max > 0 ? item.max : 1;
   const height = Math.max(8, Math.min(100, (value / max) * 100));
   return `
-    <div class="bar-metric" style="--bar-height:${height}%;--delay:${index * 90}ms">
+    <div class="bar-metric" style="--bar-offset:${100 - height};--delay:${index * 90}ms">
       <svg viewBox="0 0 24 118" aria-hidden="true">
         <line x1="12" y1="108" x2="12" y2="${108 - height}" pathLength="100"></line>
       </svg>
