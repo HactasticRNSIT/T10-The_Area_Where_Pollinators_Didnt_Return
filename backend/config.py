@@ -13,6 +13,12 @@ API_ENDPOINTS = {
     # GBIF species occurrence search (no API key)
     "gbif_occurrences": "https://api.gbif.org/v1/occurrence/search",
 
+    # ISRIC SoilGrids REST API (primary soil data source, currently intermittent)
+    "soilgrids": "https://rest.isric.org/soilgrids/v2.0/properties/query",
+
+    # OpenLandMap STAC catalog (alternative soil source via OpenLandMap/OpenGeoHub)
+    "openlandmap_stac": "https://s3.eu-central-1.wasabisys.com/stac/openlandmap/catalog.json",
+
     # Groq LLM inference
     "groq": "https://api.groq.com/openai/v1/chat/completions",
 }

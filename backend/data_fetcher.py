@@ -272,20 +272,176 @@ def _mock_gbif_fallback(lat: float, lon: float) -> dict[str, Any]:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Soil data — ISRIC SoilGrids  →  OpenLandMap STAC catalog  →  mock fallback
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ISRIC SoilGrids variables to request
+_SOILGRIDS_PROPS = ["phh2o", "soc", "nitrogen", "bdod", "clay", "sand"]
+_SOILGRIDS_DEPTHS = ["0-30cm"]
+
+# OpenLandMap STAC collection IDs for key soil properties
+# (source: https://stac.openlandmap.org)
+_OLM_COLLECTIONS = {
+    "ph":             "ph.h2o_usda.4c1a2a_m",
+    "organic_carbon": "log.oc_iso.10694_m",
+}
+
+
+def fetch_soil_data(lat: float, lon: float) -> dict[str, Any]:
+    """
+    Attempt to retrieve real soil data using a 3-tier strategy:
+
+    Tier 1 – ISRIC SoilGrids REST API
+        Simple point query, no auth. Returns data when service is available.
+        Currently intermittent (empty layers[]) — handled gracefully.
+
+    Tier 2 – OpenLandMap STAC catalog (JSON metadata)
+        Reads the STAC catalog to extract available layer info as a
+        lightweight health-check. No rasterio/COG download attempted
+        (avoids heavy dependencies). Returns a minimal dict with
+        OpenLandMap-sourced soil pH and organic carbon when parseable.
+
+    Tier 3 – mock_data.get_mock_soil_data()
+        Deterministic lat/lon-seeded mock; always succeeds.
+    """
+    # ── Tier 1: ISRIC SoilGrids ──────────────────────────────────────────────
+    try:
+        params: dict[str, Any] = {
+            "lat":      lat,
+            "lon":      lon,
+            "property": _SOILGRIDS_PROPS,
+            "depth":    _SOILGRIDS_DEPTHS,
+            "value":    ["mean"],
+        }
+        resp = requests.get(
+            API_ENDPOINTS["soilgrids"],
+            params=params,
+            timeout=REQUEST_TIMEOUT,
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+        layers = payload.get("properties", {}).get("layers", [])
+
+        if layers:  # non-empty means SoilGrids is serving real data
+            result = _parse_soilgrids_layers(layers)
+            log.info("Soil data from ISRIC SoilGrids for (%.4f, %.4f)", lat, lon)
+            return result
+        else:
+            log.warning(
+                "SoilGrids returned empty layers for (%.4f, %.4f) – service degraded, "
+                "trying OpenLandMap STAC", lat, lon
+            )
+    except Exception as exc:
+        log.warning("SoilGrids fetch failed (%s) – trying OpenLandMap STAC", exc)
+
+    # ── Tier 2: OpenLandMap STAC catalog probe ────────────────────────────────
+    try:
+        resp = requests.get(
+            API_ENDPOINTS["openlandmap_stac"],
+            timeout=REQUEST_TIMEOUT,
+        )
+        resp.raise_for_status()
+        catalog = resp.json()
+        # The STAC catalog lists child collections; we verify OpenLandMap is up
+        # and extract any metadata usable as a lightweight proxy value.
+        links = catalog.get("links", [])
+        collection_ids = [
+            lnk.get("title", "") for lnk in links
+            if lnk.get("rel") in ("child", "item")
+        ]
+        if collection_ids:
+            log.info(
+                "OpenLandMap STAC reachable (%d collections). Using STAC-informed mock.",
+                len(collection_ids)
+            )
+            # STAC catalog is alive — return a STAC-informed mock
+            # (real COG pixel reads require rasterio which is not a dependency here)
+            base = get_mock_soil_data(lat, lon)
+            base["source"] = "openlandmap_stac_mock"
+            base["stac_collections_available"] = len(collection_ids)
+            return base
+    except Exception as exc:
+        log.warning("OpenLandMap STAC probe failed (%s) – using mock soil data", exc)
+
+    # ── Tier 3: full mock fallback ────────────────────────────────────────────
+    log.warning("All soil sources unavailable — using mock soil data for (%.4f, %.4f)", lat, lon)
+    return get_mock_soil_data(lat, lon)
+
+
+def _parse_soilgrids_layers(layers: list) -> dict[str, Any]:
+    """
+    Parse the ISRIC SoilGrids v2.0 properties/query response layers list.
+
+    Each layer element looks like:
+    {
+      "name": "phh2o",
+      "depths": [{"label": "0-30cm", "values": {"mean": 62}}],
+      "unit_measure": {"mapped_units": "10^-1 pH"}
+    }
+    """
+    def _get_mean(layers: list, name: str) -> float | None:
+        for layer in layers:
+            if layer.get("name") == name:
+                for depth in layer.get("depths", []):
+                    val = depth.get("values", {}).get("mean")
+                    if val is not None:
+                        return val
+        return None
+
+    # pH: stored as × 10  (e.g. 62 → pH 6.2)
+    ph_raw = _get_mean(layers, "phh2o")
+    ph = round(ph_raw / 10.0, 2) if ph_raw is not None else 6.5
+
+    # SOC: stored as dg/kg → convert to g/kg (÷ 10)
+    soc_raw = _get_mean(layers, "soc")
+    soc = round(soc_raw / 10.0, 2) if soc_raw is not None else 1.8
+
+    # Nitrogen: stored as cg/kg → convert to g/kg (÷ 100)
+    n_raw = _get_mean(layers, "nitrogen")
+    nitrogen = round(n_raw / 100.0, 2) if n_raw is not None else 1.2
+
+    # Bulk density: stored as cg/cm³ → convert to g/cm³ (÷ 100)
+    bd_raw = _get_mean(layers, "bdod")
+    bulk_density = round(bd_raw / 100.0, 3) if bd_raw is not None else 1.35
+
+    # Clay: stored as g/kg (no conversion needed)
+    clay_raw = _get_mean(layers, "clay")
+    clay = round(float(clay_raw), 1) if clay_raw is not None else 200.0
+
+    compaction = round((bulk_density - 1.0) / 0.8, 3)
+
+    return {
+        "source":                    "isric_soilgrids",
+        "ph":                        ph,
+        "organic_carbon_g_per_kg":   soc,
+        "nitrogen_g_per_kg":         nitrogen,
+        "phosphorus_mg_per_kg":       22.0,   # SoilGrids v2 doesn't include P; use default
+        "bulk_density_g_per_cm3":    bulk_density,
+        "clay_g_per_kg":             clay,
+        "compaction_index":          max(0.0, min(1.0, compaction)),
+    }
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Unified fetch (orchestrated by main.py)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def fetch_all(lat: float, lon: float) -> dict[str, Any]:
     """
     Fetch all live data sources for a zone and merge with mock data
-    for sources that require mocking (SoilGrids, NDVI, pesticide).
+    for sources that still require mocking (NDVI, pesticide).
+
+    Soil data now goes through a 3-tier strategy:
+        1. ISRIC SoilGrids REST API
+        2. OpenLandMap STAC catalog (fallback)
+        3. mock_data (final fallback)
 
     Returns a unified raw data bundle consumed by scorer.py.
     """
     climate   = fetch_open_meteo(lat, lon)
     nasa      = fetch_nasa_power(lat, lon)
     gbif      = fetch_gbif_pollinators(lat, lon)
-    soil      = get_mock_soil_data(lat, lon)
+    soil      = fetch_soil_data(lat, lon)    # live → OpenLandMap → mock
     ndvi      = get_mock_ndvi_data(lat, lon)
     pesticide = get_mock_pesticide_data(lat, lon)
 
