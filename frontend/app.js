@@ -1,12 +1,12 @@
 'use strict';
 
 const FACTOR_META = {
-  pesticide_exposure: { label: 'Pesticides', weight: 32, color: '#ff6a5f' },
-  soil_fertility: { label: 'Soil', weight: 23, color: '#e0b44f' },
-  floral_diversity: { label: 'Floral Diversity', weight: 17, color: '#79ff9f' },
-  climate_variability: { label: 'Climate', weight: 12, color: '#8ec7ff' },
-  nesting_availability: { label: 'Nesting', weight: 8, color: '#c7ff7a' },
-  pollination_factor: { label: 'Pollination', weight: 8, color: '#48f5c7' },
+  pesticide_exposure: { label: 'Pesticides', weight: 32, color: '#d96c58' },
+  soil_fertility: { label: 'Soil', weight: 23, color: '#caa65a' },
+  floral_diversity: { label: 'Floral Diversity', weight: 17, color: '#74c98d' },
+  climate_variability: { label: 'Climate', weight: 12, color: '#88aac9' },
+  nesting_availability: { label: 'Nesting', weight: 8, color: '#a6bf77' },
+  pollination_factor: { label: 'Pollination', weight: 8, color: '#6fc6ad' },
 };
 
 let activeZoneId = '';
@@ -266,7 +266,7 @@ function stressRange(percent) {
 }
 
 function regionLabel(name) {
-  return String(name).split('—').pop().trim();
+  return String(name).split(/—|â€”/).pop().trim();
 }
 
 function zoneSparkline(index) {
