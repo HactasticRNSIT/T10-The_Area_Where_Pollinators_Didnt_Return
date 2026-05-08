@@ -63,7 +63,34 @@
       </div>
     </header>
 
+    <section class="story-grid">
+      <article class="panel insight-panel">
+        <div class="panel-head">
+          <h3>AI Insights</h3>
+          <span id="insight-source" class="tag">--</span>
+        </div>
+        <div id="ai-content" class="scroll-area readable">
+          <p class="empty">Insights will appear after analysis.</p>
+        </div>
+      </article>
+
+      <article class="panel pollination-card">
+        <div class="panel-head">
+          <h3>Pollination Factor</h3>
+          <span class="tag">modelled visitation</span>
+        </div>
+        <div id="pollination-detail" class="scroll-area detail-grid">
+          <p class="empty">Pollination visitation data will appear after analysis.</p>
+        </div>
+      </article>
+    </section>
+
     <section class="factor-grid" id="factor-grid"></section>
+
+    <section class="method-note" id="method-note">
+      <strong>Model note</strong>
+      <span>Scores are estimated decision-support bands from mixed live, modelled, and surrogate inputs; they are not calibrated farm-level sensor measurements.</span>
+    </section>
 
     <section class="panel-grid">
       <article class="panel crop-panel">
@@ -76,7 +103,7 @@
             <thead>
               <tr>
                 <th>Crop</th>
-                <th>Dependency</th>
+                <th>Dependency estimate</th>
                 <th>Risk</th>
               </tr>
             </thead>
@@ -87,17 +114,7 @@
         </div>
       </article>
 
-      <article class="panel">
-        <div class="panel-head">
-          <h3>AI Insights</h3>
-          <span id="insight-source" class="tag">--</span>
-        </div>
-        <div id="ai-content" class="scroll-area readable">
-          <p class="empty">Insights will appear after analysis.</p>
-        </div>
-      </article>
-
-      <article class="panel">
+      <article class="panel anomaly-panel">
         <div class="panel-head">
           <h3>Anomaly Alert Feed</h3>
           <span id="anomaly-count" class="tag">0 alerts</span>
@@ -106,16 +123,6 @@
           <p class="empty">No alerts yet.</p>
         </div>
       </article>
-    </section>
-
-    <section class="panel wide-panel">
-      <div class="panel-head">
-        <h3>Pollination Factor Detail</h3>
-        <span class="tag">modelled visitation</span>
-      </div>
-      <div id="pollination-detail" class="scroll-area detail-grid">
-        <p class="empty">Pollination visitation data will appear after analysis.</p>
-      </div>
     </section>
 
     <footer class="source-strip" id="source-strip"></footer>

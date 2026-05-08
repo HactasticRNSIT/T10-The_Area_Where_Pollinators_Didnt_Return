@@ -1,12 +1,12 @@
 'use strict';
 
 const FACTOR_META = {
-  pesticide_exposure: { label: 'Pesticide Exposure', weight: 32, color: '#e63946' },
-  soil_fertility: { label: 'Soil Fertility', weight: 23, color: '#f5a623' },
-  floral_diversity: { label: 'Floral Diversity', weight: 17, color: '#39ff14' },
-  climate_variability: { label: 'Climate Variability', weight: 12, color: '#58a6ff' },
-  nesting_availability: { label: 'Nesting Availability', weight: 8, color: '#bc8cff' },
-  pollination_factor: { label: 'Pollination Factor', weight: 8, color: '#2dd4bf' },
+  pesticide_exposure: { label: 'Pesticides', weight: 32, color: '#ef5b64' },
+  soil_fertility: { label: 'Soil', weight: 23, color: '#f2b84b' },
+  floral_diversity: { label: 'Floral Diversity', weight: 17, color: '#48d597' },
+  climate_variability: { label: 'Climate', weight: 12, color: '#6aa8ff' },
+  nesting_availability: { label: 'Nesting', weight: 8, color: '#a890ff' },
+  pollination_factor: { label: 'Pollination', weight: 8, color: '#4dd6d0' },
 };
 
 let activeZoneId = '';
@@ -97,7 +97,7 @@ function markActiveZone(zoneId) {
 function renderDashboard(data, displayName) {
   document.getElementById('zone-title').textContent = `${data.zone_id} - ${displayName || 'Custom zone'}`;
   document.getElementById('zone-meta').textContent =
-    `lat ${Number(data.latitude).toFixed(4)} | lon ${Number(data.longitude).toFixed(4)} | ${formatDate(data.analysed_at)}`;
+    `Lat ${Number(data.latitude).toFixed(4)} | Lon ${Number(data.longitude).toFixed(4)} | ${formatDate(data.analysed_at)}`;
   document.getElementById('activity-score').textContent = Number(data.activity_score).toFixed(1);
   document.getElementById('activity-label').textContent = data.activity_label;
   document.getElementById('stress-index').textContent = data.pollination_stress_index;
@@ -109,6 +109,7 @@ function renderDashboard(data, displayName) {
   renderAnomalies(data.anomalies || []);
   renderPollinationDetail(data._meta?.visitation_summary || {});
   renderSources(data._meta?.data_sources || {}, data._meta?.data_quality || {});
+  renderMethodNote(data._meta || {});
 }
 
 function renderFactors(factors) {
@@ -122,11 +123,12 @@ function renderFactors(factors) {
     card.innerHTML = `
       <div class="factor-head">
         <h3>${meta.label}</h3>
-        <div class="weight">${meta.weight}% weight</div>
+        <div class="weight">${meta.weight}% model weight</div>
       </div>
-      <span>Stress score</span>
+      <span>Estimated stress level</span>
       <div class="meter"><div class="meter-fill" style="width:${percent}%;background:${meta.color}"></div></div>
-      <div class="factor-score">${percent}%</div>
+      <div class="factor-score">${escapeHtml(stressBand(stress))}</div>
+      <div class="factor-range">${stressRange(percent)}</div>
     `;
     grid.appendChild(card);
   });
@@ -142,7 +144,7 @@ function renderCropTable(cropRisk, cropDependency) {
   }
   tbody.innerHTML = crops.map((crop) => {
     const risk = cropRisk[crop] || '--';
-    const dependency = cropDependency[crop] == null ? '--' : `${Math.round(cropDependency[crop] * 100)}%`;
+    const dependency = cropDependency[crop] == null ? '--' : `est. ${Math.round(cropDependency[crop] * 100)}%`;
     return `
       <tr>
         <td>${escapeHtml(titleCase(crop))}</td>
@@ -151,6 +153,16 @@ function renderCropTable(cropRisk, cropDependency) {
       </tr>
     `;
   }).join('');
+}
+
+function renderMethodNote(meta) {
+  const note = document.getElementById('method-note');
+  const text = meta.model_limitations ||
+    'Scores are estimated decision-support bands from mixed live, modelled, and surrogate inputs; they are not calibrated farm-level sensor measurements.';
+  note.innerHTML = `
+    <strong>Model note</strong>
+    <span>${escapeHtml(text)}</span>
+  `;
 }
 
 function renderInsights(data) {
@@ -202,8 +214,15 @@ function renderPollinationDetail(summary) {
 function renderSources(sources, quality) {
   const strip = document.getElementById('source-strip');
   strip.innerHTML = Object.entries(sources).map(([key, source]) => (
-    `<span class="source-chip">${escapeHtml(key)}: ${escapeHtml(source)} (${escapeHtml(quality[key] || 'unknown')})</span>`
+    `<span class="source-chip">${escapeHtml(titleCase(key))}: ${escapeHtml(formatSource(source, quality[key]))}</span>`
   )).join('');
+}
+
+function formatSource(source, quality) {
+  const shortName = String(source || 'unknown')
+    .replaceAll('_', ' ')
+    .replace('modelled visitation', 'visitation model');
+  return `${shortName} / ${quality || 'unknown'}`;
 }
 
 function formatDate(value) {
@@ -216,6 +235,19 @@ function formatDate(value) {
 
 function formatRatio(value) {
   return value == null ? null : `${Math.round(Number(value) * 100)}%`;
+}
+
+function stressBand(value) {
+  if (value >= 0.75) return 'Severe';
+  if (value >= 0.50) return 'High';
+  if (value >= 0.25) return 'Moderate';
+  return 'Low';
+}
+
+function stressRange(percent) {
+  const low = Math.max(0, Math.floor(percent / 10) * 10);
+  const high = Math.min(100, low + 10);
+  return `${low}-${high}% score band`;
 }
 
 function titleCase(value) {
