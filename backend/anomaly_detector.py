@@ -1,8 +1,100 @@
 
-
 from typing import Any
 
 from config import ANOMALY_THRESHOLDS as T
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Zone-aware action localisation
+# Maps zone prefix → dict of UK term → local equivalent.
+# Applied as a post-processing pass on every recommended_action string
+# so we don’t have to duplicate all 30+ action strings per region.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Shared India substitutions — applied to all IN_* zones
+_INDIA_SUBS: dict[str, str] = {
+    # Cover crops / wildflowers
+    "phacelia, buckwheat, crimson clover": "dhaincha, sunn hemp, cowpea",
+    "phacelia or borage": "sesame or marigold",
+    "phacelia, clover": "dhaincha, clover",
+    "borage, phacelia, clover": "marigold, sesame, cowpea",
+    "borage or phacelia": "marigold or sesame",
+    "phacelia": "dhaincha",
+    "borage": "marigold",
+    "buckwheat": "cowpea",
+    "crimson clover": "clusterbean",
+    # Hedgerow / woody plants
+    "hawthorn, blackthorn, dog rose": "drumstick (Moringa), karanj, jatropha",
+    "hawthorn": "Moringa",
+    "blackthorn": "karanj",
+    "dog rose": "wild jasmine",
+    # Beneficial insects
+    "lacewings, parasitic wasps": "Trichogramma wasps, chrysopids",
+    "lacewings": "chrysopids",
+    "parasitic wasps": "Trichogramma wasps",
+    # Institutions
+    "county wildlife trust": "State Agriculture Department / Krishi Vigyan Kendra (KVK)",
+    "regional agricultural extension office": "District Agriculture Officer / KVK",
+    # Pesticide alternatives
+    "pyrethrin-based or kaolin clay sprays": "neem oil (Azadirachtin) or kaolin clay sprays",
+    "pyrethrin": "neem oil (Azadirachtin)",
+    # Measurements (keep metric, just ensure context)
+    "t/ha of agricultural lime": "t/ha of agricultural lime or dolomite",
+    # Grass / ground cover
+    "native grass-flower mix": "native grass-forb mix (Cenchrus, Stylosanthes)",
+    "native wildflower mix": "native wildflower mix (marigold, sunhemp, Tephrosia)",
+    "native pollen-rich shrubs": "native pollen-rich shrubs (Moringa, Cassia, Sesbania)",
+}
+
+# Zone-specific overrides on top of shared India subs
+_ZONE_LOCALE: dict[str, dict[str, str]] = {
+    "IN_KL": {
+        # Kerala — spice-coast forest margin; different cover crops
+        "dhaincha, sunn hemp, cowpea": "Tephrosia, Crotalaria, wild turmeric",
+        "marigold or sesame": "Tephrosia or wild turmeric",
+        "drumstick (Moringa), karanj, jatropha": "Calophyllum, wild jack, Vateria",
+    },
+    "IN_HP": {
+        # Himachal — temperate apple belt; European cover crops mostly fine
+        "dhaincha, sunn hemp, cowpea": "white clover, mustard, buckwheat",
+        "marigold or sesame": "clover or mustard",
+        "drumstick (Moringa), karanj, jatropha": "wild rose, hawthorn, apple rootstock hedges",
+        "State Agriculture Department / Krishi Vigyan Kendra (KVK)": (
+            "Himachal Pradesh Horticulture Department / KVK Shimla"
+        ),
+    },
+}
+
+
+def _localize_action(action: str, zone_id: str) -> str:
+    """
+    Replace UK-centric recommended-action text with geographically
+    appropriate equivalents based on zone_id prefix.
+
+    Strategy:
+      1. If zone is Indian (IN_*), apply _INDIA_SUBS substitutions.
+      2. Then apply any _ZONE_LOCALE overrides for the specific sub-region.
+    Case-insensitive matching, longest replacement first to avoid partial hits.
+    """
+    if not zone_id.startswith("IN_"):
+        return action  # keep original text for European / US / unknown zones
+
+    result = action
+
+    # Apply shared India substitutions (longest key first to prevent partial matches)
+    for uk_term, local_term in sorted(_INDIA_SUBS.items(), key=lambda x: -len(x[0])):
+        result = result.replace(uk_term, local_term)
+
+    # Apply zone-specific overrides
+    parts = zone_id.split("_")
+    for length in range(len(parts), 0, -1):
+        prefix = "_".join(parts[:length])
+        if prefix in _ZONE_LOCALE:
+            for old, new in sorted(_ZONE_LOCALE[prefix].items(), key=lambda x: -len(x[0])):
+                result = result.replace(old, new)
+            break
+
+    return result
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -205,6 +297,8 @@ def _check_climate(climate: dict[str, Any]) -> list[dict]:
     temp_std     = climate.get("temp_std_c", 4.0)
     total_precip = climate.get("total_precipitation_mm", 48.0)
     drought_idx  = climate.get("drought_index", 0.35)
+    if drought_idx is None:
+        drought_idx = 0.4
 
     # Temperature variance
     if temp_std >= T["temp_variance_critical"]:
@@ -321,6 +415,83 @@ def _check_floral(
     return anomalies
 
 
+def _check_visitation(visitation: dict[str, Any]) -> list[dict]:
+    anomalies = []
+    ratio = visitation.get("visitation_ratio", 1.0)
+    decline = visitation.get("decline_rate_12w", 0.0)
+    timing = visitation.get("pollination_timing_disruption", 0.0)
+    flowering = visitation.get("flowering_success_rate", 1.0)
+    visits = visitation.get("avg_visitations_per_hour", 0.0)
+    expected = visitation.get("expected_visitations_per_hour", 0.0)
+
+    if ratio <= T["visitation_ratio_critical"]:
+        anomalies.append(_anomaly(
+            "floral_diversity", "visitation_ratio", "CRITICAL",
+            ratio, T["visitation_ratio_critical"],
+            f"Observed pollinator visitation is only {ratio*100:.0f}% of the expected level "
+            f"({visits:.1f} vs {expected:.1f} visits/hour), indicating severe local visitation collapse.",
+            "Create a pesticide-free flowering refuge within 7 days and monitor morning and evening "
+            "pollinator visits twice weekly until visitation recovers above 70% of expected levels.",
+        ))
+    elif ratio <= T["visitation_ratio_warning"]:
+        anomalies.append(_anomaly(
+            "floral_diversity", "visitation_ratio", "WARNING",
+            ratio, T["visitation_ratio_warning"],
+            f"Pollinator visitation is reduced to {ratio*100:.0f}% of expected activity "
+            f"({visits:.1f} vs {expected:.1f} visits/hour).",
+            "Add staggered flowering strips beside the crop edge and pause non-essential sprays during bloom.",
+        ))
+
+    if decline >= T["visitation_decline_critical"]:
+        anomalies.append(_anomaly(
+            "floral_diversity", "decline_rate_12w", "CRITICAL",
+            decline, T["visitation_decline_critical"],
+            f"Visitation has declined by {decline*100:.0f}% over the last 12 weeks, matching the problem "
+            f"pattern of gradual pollinator disappearance.",
+            "Run a field audit for recent pesticide, mowing, irrigation, and bloom-cycle changes; compare "
+            "against the nearest stable field before applying the next management action.",
+        ))
+    elif decline >= T["visitation_decline_warning"]:
+        anomalies.append(_anomaly(
+            "floral_diversity", "decline_rate_12w", "WARNING",
+            decline, T["visitation_decline_warning"],
+            f"Visitation has fallen by {decline*100:.0f}% over 12 weeks, suggesting an early decline signal.",
+            "Repeat fixed-transect pollinator counts for the next 3 weeks and preserve current flowering patches.",
+        ))
+
+    if timing >= T["timing_disruption_critical"]:
+        anomalies.append(_anomaly(
+            "floral_diversity", "pollination_timing_disruption", "CRITICAL",
+            timing, T["timing_disruption_critical"],
+            f"Pollination timing disruption is {timing:.2f}, so visits are poorly aligned with crop flowering.",
+            "Extend forage availability before and after the crop bloom using overlapping flowering species.",
+        ))
+    elif timing >= T["timing_disruption_warning"]:
+        anomalies.append(_anomaly(
+            "floral_diversity", "pollination_timing_disruption", "WARNING",
+            timing, T["timing_disruption_warning"],
+            f"Pollination timing disruption is {timing:.2f}; visits may be missing peak flowering windows.",
+            "Plant early and late flowering margin species to bridge the crop bloom timing gap.",
+        ))
+
+    if flowering <= T["flowering_success_critical"]:
+        anomalies.append(_anomaly(
+            "floral_diversity", "flowering_success_rate", "CRITICAL",
+            flowering, T["flowering_success_critical"],
+            f"Flowering success is only {flowering*100:.0f}%, pointing to uneven pollination outcomes.",
+            "Prioritise managed pollinator support during the next bloom and protect all open flowers from spray drift.",
+        ))
+    elif flowering <= T["flowering_success_warning"]:
+        anomalies.append(_anomaly(
+            "floral_diversity", "flowering_success_rate", "WARNING",
+            flowering, T["flowering_success_warning"],
+            f"Flowering success is {flowering*100:.0f}%, below the expected level for a stable crop cycle.",
+            "Survey flower-to-fruit set across representative rows and add supplemental forage near low-performing rows.",
+        ))
+
+    return anomalies
+
+
 def _check_nesting(ndvi: dict[str, Any]) -> list[dict]:
     anomalies = []
     bare_soil   = ndvi.get("bare_soil_fraction", 0.25)
@@ -373,9 +544,16 @@ def _check_nesting(ndvi: dict[str, Any]) -> list[dict]:
 # Public entry point
 # ──────────────────────────────────────────────────────────────────────────────
 
-def detect_anomalies(raw: dict[str, Any]) -> list[dict[str, Any]]:
+def detect_anomalies(raw: dict[str, Any], zone_id: str = "") -> list[dict[str, Any]]:
     """
     Run all rule-based checks against the raw data bundle.
+
+    Parameters
+    ----------
+    raw     : dict   Raw data bundle from fetch_all()
+    zone_id : str    Zone identifier — used to localise recommended actions
+                     so Indian zones receive India-appropriate guidance instead
+                     of UK-centric plant species and institutions.
 
     Returns a list of anomaly dicts, sorted by severity (CRITICAL first).
     """
@@ -385,7 +563,12 @@ def detect_anomalies(raw: dict[str, Any]) -> list[dict[str, Any]]:
     anomalies.extend(_check_soil(raw["soil"], raw["nasa"]))
     anomalies.extend(_check_climate(raw["climate"]))
     anomalies.extend(_check_floral(raw["ndvi"], raw["gbif"]))
+    anomalies.extend(_check_visitation(raw.get("visitation", {})))
     anomalies.extend(_check_nesting(raw["ndvi"]))
+
+    # Localise all recommended_action strings to the zone's region
+    for a in anomalies:
+        a["recommended_action"] = _localize_action(a["recommended_action"], zone_id)
 
     # Sort: CRITICAL → WARNING → INFO
     severity_order = {"CRITICAL": 0, "WARNING": 1, "INFO": 2}

@@ -78,6 +78,10 @@ def _build_user_prompt(
             "pesticide_ppm":       raw["pesticide"].get("usage_ppm"),
             "pesticide_type":      raw["pesticide"].get("pesticide_type"),
             "root_zone_moisture":  raw["nasa"].get("root_zone_wetness"),
+            "visitation_ratio":    raw.get("visitation", {}).get("visitation_ratio"),
+            "decline_rate_12w":    raw.get("visitation", {}).get("decline_rate_12w"),
+            "timing_disruption":   raw.get("visitation", {}).get("pollination_timing_disruption"),
+            "flowering_success":   raw.get("visitation", {}).get("flowering_success_rate"),
         },
     }
     return json.dumps(payload, indent=2)

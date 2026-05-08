@@ -17,7 +17,12 @@ from config import (
     OPEN_METEO_VARS,
     REQUEST_TIMEOUT,
 )
-from mock_data import get_mock_ndvi_data, get_mock_pesticide_data, get_mock_soil_data
+from mock_data import (
+    get_mock_ndvi_data,
+    get_mock_pesticide_data,
+    get_mock_soil_data,
+    get_mock_visitation_data,
+)
 
 log = logging.getLogger(__name__)
 
@@ -66,7 +71,7 @@ def fetch_open_meteo(lat: float, lon: float) -> dict[str, Any]:
         t_max = daily.get("temperature_2m_max", [])
         t_min = daily.get("temperature_2m_min", [])
         precip = daily.get("precipitation_sum", [])
-        wind = daily.get("windspeed_10m_max", [])
+        wind = daily.get("wind_speed_10m_max", daily.get("windspeed_10m_max", []))
         etp = daily.get("et0_fao_evapotranspiration", [])
 
         # Filter out None values
@@ -85,9 +90,17 @@ def fetch_open_meteo(lat: float, lon: float) -> dict[str, Any]:
         total_precip = sum(precip)
         avg_precip = total_precip / max(len(precip), 1)
 
-        # Drought index: ratio of ETP to precipitation (capped 0–1)
+        # Drought index: ratio of ETP to precipitation (capped 0–1).
+        # FIX: if BOTH total_etp AND total_precip are zero (no data returned),
+        # the old code returned 0.0 which falsely signals a perfectly healthy zone.
+        # We now return None as a sentinel so the scorer treats it as unknown.
         total_etp = sum(etp)
-        drought_index = min(1.0, total_etp / max(total_precip, 1.0)) if total_etp else 0.0
+        if total_etp == 0 and total_precip == 0:
+            drought_index = None   # sentinel — scorer treats as moderate (0.4)
+        elif total_etp == 0:
+            drought_index = 0.0   # no evapotranspiration data: assume no drought
+        else:
+            drought_index = min(1.0, total_etp / max(total_precip, 1.0))
 
         return {
             "source":               "open_meteo",
@@ -99,7 +112,7 @@ def fetch_open_meteo(lat: float, lon: float) -> dict[str, Any]:
             "avg_daily_precip_mm":  round(avg_precip, 2),
             "precip_std_mm":        round(statistics.stdev(precip), 3) if len(precip) > 1 else 0.0,
             "avg_windspeed_kmh":    round(statistics.mean(wind), 2) if wind else 10.0,
-            "drought_index":        round(drought_index, 3),
+            "drought_index":        round(drought_index, 3) if drought_index is not None else None,
             "days_fetched":         len(t_mean),
         }
 
@@ -219,6 +232,9 @@ def fetch_gbif_pollinators(lat: float, lon: float) -> dict[str, Any]:
                 "limit":      GBIF_MAX_RECORDS // len(GBIF_POLLINATOR_TAXON_KEYS),
                 "hasCoordinate": "true",
                 "occurrenceStatus": "PRESENT",
+                # FIX: restrict to last 3 years so we measure current status,
+                # not historical records from the 1980s that mask modern declines.
+                "year": f"{date.today().year - 3},{date.today().year}",
             }
             resp = requests.get(
                 API_ENDPOINTS["gbif_occurrences"],
@@ -444,6 +460,7 @@ def fetch_all(lat: float, lon: float) -> dict[str, Any]:
     soil      = fetch_soil_data(lat, lon)    # live → OpenLandMap → mock
     ndvi      = get_mock_ndvi_data(lat, lon)
     pesticide = get_mock_pesticide_data(lat, lon)
+    visitation = get_mock_visitation_data(lat, lon, ndvi, pesticide, climate, gbif)
 
     return {
         "climate":   climate,
@@ -452,4 +469,5 @@ def fetch_all(lat: float, lon: float) -> dict[str, Any]:
         "soil":      soil,
         "ndvi":      ndvi,
         "pesticide": pesticide,
+        "visitation": visitation,
     }

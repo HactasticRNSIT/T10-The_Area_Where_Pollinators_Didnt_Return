@@ -188,6 +188,70 @@ def get_mock_pesticide_data(lat: float, lon: float) -> dict[str, Any]:
     }
 
 
+def get_mock_visitation_data(
+    lat: float,
+    lon: float,
+    ndvi: dict[str, Any],
+    pesticide: dict[str, Any],
+    climate: dict[str, Any],
+    gbif: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Build a deterministic pollinator visitation signal from the same drivers
+    used by the scorer.
+
+    The problem statement is about declining and irregular pollinator visits,
+    so this keeps the mock layer internally consistent instead of generating
+    unrelated random-looking values.
+    """
+    s = _zone_seed(lat, lon)
+
+    ndvi_val = ndvi.get("ndvi", 0.5)
+    flowering = ndvi.get("flowering_coverage", 0.35)
+    species_count = gbif.get("species_count", 8)
+    pesticide_ppm = pesticide.get("usage_ppm", 5.0)
+    pesticide_freq = pesticide.get("applications_per_month", 2)
+    drought_index = climate.get("drought_index", 0.35)
+    if drought_index is None:
+        drought_index = 0.4
+
+    habitat_quality = max(0.0, min(1.0, ndvi_val * 0.45 + flowering * 0.35 + min(species_count / 20.0, 1.0) * 0.20))
+    pesticide_pressure = max(0.0, min(1.0, pesticide_ppm / 20.0 * 0.65 + pesticide_freq / 8.0 * 0.35))
+    climate_pressure = max(0.0, min(1.0, float(drought_index)))
+
+    stress = max(0.0, min(1.0, pesticide_pressure * 0.45 + (1.0 - habitat_quality) * 0.35 + climate_pressure * 0.20))
+    baseline_visits = 18.0 + habitat_quality * 22.0
+    current_visits = max(0.5, baseline_visits * (1.0 - stress * 0.82))
+    decline_rate = max(0.0, min(0.9, stress * 0.55 + max(0.0, pesticide_pressure - 0.45) * 0.25))
+
+    weekly_visits = []
+    for i in range(12):
+        age = 11 - i
+        seasonal_wave = math.sin(s * 9.1 + i * 0.85) * 0.12
+        recovery_noise = math.sin(s * 15.7 + i * 1.6) * stress * 0.18
+        value = current_visits * (1.0 + decline_rate * age / 11.0 + seasonal_wave + recovery_noise)
+        weekly_visits.append(round(max(0.2, value), 2))
+
+    expected_visits = round(baseline_visits, 2)
+    avg_visits = round(sum(weekly_visits[-4:]) / 4.0, 2)
+    expected_ratio = round(avg_visits / expected_visits, 3) if expected_visits else 0.0
+    timing_disruption = max(0.0, min(1.0, stress * 0.70 + abs(math.sin(s * 21.0)) * 0.20))
+    flowering_success = max(0.05, min(0.98, flowering * 0.55 + expected_ratio * 0.35 + (1.0 - timing_disruption) * 0.10))
+    recovery_volatility = max(0.0, min(1.0, stress * 0.55 + abs(math.sin(s * 17.0)) * 0.25))
+
+    return {
+        "source": "modelled_visitation",
+        "avg_visitations_per_hour": avg_visits,
+        "expected_visitations_per_hour": expected_visits,
+        "visitation_ratio": expected_ratio,
+        "twelve_week_visits_per_hour": weekly_visits,
+        "decline_rate_12w": round(decline_rate, 3),
+        "pollination_timing_disruption": round(timing_disruption, 3),
+        "flowering_success_rate": round(flowering_success, 3),
+        "recovery_volatility": round(recovery_volatility, 3),
+    }
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Full mock bundle (used when all real sources fail)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -197,8 +261,21 @@ def get_full_mock_bundle(lat: float, lon: float) -> dict[str, Any]:
     Return all mock data in a single call.  Used as the complete fallback
     when live API calls fail during development or testing.
     """
-    return {
+    bundle = {
         "soil":      get_mock_soil_data(lat, lon),
         "ndvi":      get_mock_ndvi_data(lat, lon),
         "pesticide": get_mock_pesticide_data(lat, lon),
     }
+    bundle["climate"] = {
+        "source": "mock_open_meteo",
+        "temp_mean_c": 20.0,
+        "temp_std_c": 4.0,
+        "total_precipitation_mm": 50.0,
+        "precip_std_mm": 3.0,
+        "drought_index": 0.2,
+    }
+    bundle["gbif"] = {"source": "mock_gbif", "species_count": 15}
+    bundle["visitation"] = get_mock_visitation_data(
+        lat, lon, bundle["ndvi"], bundle["pesticide"], bundle["climate"], bundle["gbif"]
+    )
+    return bundle

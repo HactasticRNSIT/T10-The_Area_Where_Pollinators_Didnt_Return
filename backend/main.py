@@ -58,11 +58,15 @@ def analyse_zone(
     # ── 1. Data Fetching ────────────────────────────────────────────────────
     raw = fetch_all(lat, lon)
 
+    # Inject zone metadata so scorer sub-functions can read lat + zone_id
+    # without changing every function signature in the hot path.
+    raw["_meta"] = {"lat": lat, "lon": lon, "zone_id": zone_id}
+
     # ── 2. Scoring ──────────────────────────────────────────────────────────
-    scores = compute_all_scores(raw)
+    scores = compute_all_scores(raw, zone_id=zone_id)
 
     # ── 3. Anomaly Detection ─────────────────────────────────────────────────
-    anomalies = detect_anomalies(raw)
+    anomalies = detect_anomalies(raw, zone_id=zone_id)
 
     # ── 4. AI Insights (conditional) ─────────────────────────────────────────
     if has_ai_trigger_anomaly(anomalies):
@@ -110,6 +114,11 @@ def _build_output(
         "soil":      raw["soil"].get("source", "unknown"),
         "ndvi":      raw["ndvi"].get("source", "unknown"),
         "pesticide": raw["pesticide"].get("source", "unknown"),
+        "visitation": raw.get("visitation", {}).get("source", "unknown"),
+    }
+    data_quality = {
+        key: ("modelled" if source in ("modelled_visitation",) else "mock" if "mock" in source else "live")
+        for key, source in data_sources.items()
     }
 
     return {
@@ -137,6 +146,7 @@ def _build_output(
 
         # ── Crop risk ─────────────────────────────────────────────────────
         "crop_risk": scores["crop_risk"],
+        "crop_dependency": scores["crop_dependency"],
 
         # ── AI / rule-based insights ──────────────────────────────────────
         "biodiversity_insight": ai_result["biodiversity_insight"],
@@ -149,6 +159,16 @@ def _build_output(
             "critical_count":   sum(1 for a in anomalies if a["severity"] == "CRITICAL"),
             "warning_count":    sum(1 for a in anomalies if a["severity"] == "WARNING"),
             "data_sources":     data_sources,
+            "data_quality":      data_quality,
+            "visitation_summary": {
+                "avg_visitations_per_hour": raw.get("visitation", {}).get("avg_visitations_per_hour"),
+                "expected_visitations_per_hour": raw.get("visitation", {}).get("expected_visitations_per_hour"),
+                "visitation_ratio": raw.get("visitation", {}).get("visitation_ratio"),
+                "decline_rate_12w": raw.get("visitation", {}).get("decline_rate_12w"),
+                "pollination_timing_disruption": raw.get("visitation", {}).get("pollination_timing_disruption"),
+                "flowering_success_rate": raw.get("visitation", {}).get("flowering_success_rate"),
+                "twelve_week_visits_per_hour": raw.get("visitation", {}).get("twelve_week_visits_per_hour"),
+            },
             "raw_factor_stress": scores["factor_scores"],
             "overall_stress":    scores["overall_stress"],
         },

@@ -12,12 +12,12 @@ import math
 from typing import Any
 
 from config import (
-    CROP_POLLINATION_DEPENDENCY,
     CROP_RISK_LABELS,
     FACTOR_WEIGHTS,
     HABITAT_WEIGHTS,
     ACTIVITY_SCORE_LABELS,
     STRESS_INDEX_THRESHOLDS,
+    get_crop_dependency_for_zone,
 )
 
 
@@ -116,7 +116,9 @@ def score_soil_fertility(
         ph_stress        – bell curve at optimum pH 6.5
         carbon_stress    – below 1.5 g/kg is concerning
         nitrogen_stress  – below 1.0 g/kg is concerning
-        moisture_stress  – from NASA POWER root-zone wetness
+        moisture_stress  – bell curve centred at 0.50 (optimal), tolerance 0.30
+                           FIX: replaces the broken if/else that left 0.20–0.85
+                           (65% of all values) producing exactly zero stress.
         compaction_stress
     """
     ph         = soil.get("ph", 6.5)
@@ -134,11 +136,9 @@ def score_soil_fertility(
     # Nitrogen: below 1.0 increases stress
     nitrogen_stress = _linear_stress(1.0 - nitrogen, 0.0, 1.0)
 
-    # Moisture: stress at extremes (< 0.2 dry stress, > 0.85 waterlog)
-    if moisture < 0.5:
-        moisture_stress = _linear_stress(0.2 - moisture, 0.0, 0.2)
-    else:
-        moisture_stress = _linear_stress(moisture - 0.85, 0.0, 0.15)
+    # Moisture: bell curve around optimal 0.50, tolerance 0.30.
+    # At 0.20 → stress ≈ 0.61; at 0.85 → stress ≈ 0.70; at 0.50 → 0.0
+    moisture_stress = _bell_curve_stress(moisture, optimum=0.50, tolerance=0.30)
 
     # Compaction
     compaction_stress = _clamp(compaction)
@@ -160,6 +160,7 @@ def score_soil_fertility(
 def score_floral_diversity(
     ndvi: dict[str, Any],
     gbif: dict[str, Any],
+    visitation: dict[str, Any] | None = None,
 ) -> float:
     """
     Compute floral diversity stress score [0, 1].
@@ -170,6 +171,11 @@ def score_floral_diversity(
     flower_cov    = ndvi.get("flowering_coverage", 0.35)
     patch_div     = ndvi.get("patch_diversity", 0.45)
     species_count = gbif.get("species_count", 5)
+    visitation = visitation or {}
+    visit_ratio = visitation.get("visitation_ratio", 0.75)
+    decline_rate = visitation.get("decline_rate_12w", 0.0)
+    timing_disruption = visitation.get("pollination_timing_disruption", 0.25)
+    flowering_success = visitation.get("flowering_success_rate", 0.70)
 
     # NDVI stress: below 0.35 is sparse vegetation
     ndvi_stress = _linear_stress(0.35 - ndvi_val, 0.0, 0.35)
@@ -183,11 +189,20 @@ def score_floral_diversity(
     # Species richness stress: < 10 is limited; < 2 is critical
     species_stress = _clamp(1.0 - species_count / 12.0)
 
+    # Visitation stress: directly model reduced visits and disrupted timing.
+    visitation_stress = _clamp(
+        _linear_stress(0.75 - visit_ratio, 0.0, 0.75) * 0.45 +
+        _clamp(decline_rate / 0.55) * 0.25 +
+        _clamp(timing_disruption) * 0.20 +
+        _linear_stress(0.65 - flowering_success, 0.0, 0.65) * 0.10
+    )
+
     raw = (
-        ndvi_stress    * 0.35 +
-        flower_stress  * 0.25 +
-        patch_stress   * 0.20 +
-        species_stress * 0.20
+        ndvi_stress        * 0.22 +
+        flower_stress      * 0.18 +
+        patch_stress       * 0.15 +
+        species_stress     * 0.20 +
+        visitation_stress  * 0.25
     )
     return _clamp(raw)
 
@@ -196,20 +211,34 @@ def score_floral_diversity(
 # Factor 4 – Climate Variability  (weight 0.12)
 # ──────────────────────────────────────────────────────────────────────────────
 
-def score_climate_variability(climate: dict[str, Any]) -> float:
+def score_climate_variability(
+    climate: dict[str, Any],
+    lat: float = 0.0,
+) -> float:
     """
     Compute climate variability stress score [0, 1].
 
     High temperature standard deviation, low rainfall, and high drought
     index contribute to stress.
+
+    FIX: temperature SD threshold is now latitude-aware.
+    Tropical zones (|lat| < 25°) naturally have large diurnal swings
+    (10–15 °C) that are normal, not stressful.  The warning floor is
+    raised from 4 °C to 8 °C for tropical zones so Indian, equatorial
+    and sub-tropical farms are not falsely penalised.
     """
     temp_std      = climate.get("temp_std_c", 4.0)
     total_precip  = climate.get("total_precipitation_mm", 48.0)
     precip_std    = climate.get("precip_std_mm", 3.0)
     drought_idx   = climate.get("drought_index", 0.35)
 
-    # Temperature variance stress: SD > 8°C is stressful
-    temp_stress = _linear_stress(temp_std, 4.0, 14.0)
+    # Temperature variance stress — latitude-aware baseline
+    # Tropics (|lat|<25): stress starts at 8 °C SD, maxes at 20 °C SD
+    # Temperate (|lat|≥25): stress starts at 4 °C SD, maxes at 14 °C SD
+    if abs(lat) < 25.0:
+        temp_stress = _linear_stress(temp_std, 8.0, 20.0)
+    else:
+        temp_stress = _linear_stress(temp_std, 4.0, 14.0)
 
     # Precipitation deficit stress: below 30 mm/30 days
     precip_stress = _linear_stress(30.0 - total_precip, 0.0, 60.0)
@@ -217,8 +246,11 @@ def score_climate_variability(climate: dict[str, Any]) -> float:
     # Precipitation irregularity
     precip_var_stress = _linear_stress(precip_std, 2.0, 8.0)
 
-    # Drought index
-    drought_stress = _clamp(drought_idx)
+    # Drought index — if sentinel value (missing data), treat as moderate
+    if drought_idx is None:
+        drought_stress = 0.4
+    else:
+        drought_stress = _clamp(drought_idx)
 
     raw = (
         temp_stress       * 0.30 +
@@ -290,12 +322,17 @@ def compute_habitat_suitability(
 # Crop risk
 # ──────────────────────────────────────────────────────────────────────────────
 
-def compute_crop_risks(overall_stress: float) -> dict[str, str]:
+def compute_crop_risks(overall_stress: float, zone_id: str = "") -> dict[str, str]:
     """
-    For each crop, compute risk as: dependency × overall_stress → label.
+    Compute crop risk for each crop relevant to this zone.
+
+    Uses the zone-aware ZONE_CROP_REGISTRY from config.py so that
+    Indian, European, and US zones each see their actual local crops
+    rather than a global hardcoded list (e.g. no almonds in Gujarat).
     """
     risks = {}
-    for crop, dep in CROP_POLLINATION_DEPENDENCY.items():
+    crop_deps = get_crop_dependency_for_zone(zone_id)
+    for crop, dep in crop_deps.items():
         impact = _clamp(dep * overall_stress)
         risks[crop] = _label_from_bands(impact, CROP_RISK_LABELS)
     return risks
@@ -305,10 +342,15 @@ def compute_crop_risks(overall_stress: float) -> dict[str, str]:
 # Top-level scorer
 # ──────────────────────────────────────────────────────────────────────────────
 
-def compute_all_scores(raw: dict[str, Any]) -> dict[str, Any]:
+def compute_all_scores(raw: dict[str, Any], zone_id: str = "") -> dict[str, Any]:
     """
     Accept the raw data bundle from data_fetcher.fetch_all() and return
     a fully scored dict suitable for downstream use by anomaly_detector and main.
+
+    Parameters
+    ----------
+    raw     : dict   Raw data bundle from fetch_all()
+    zone_id : str    Zone identifier — used for geographic crop lookup
 
     Returns
     -------
@@ -335,12 +377,16 @@ def compute_all_scores(raw: dict[str, Any]) -> dict[str, Any]:
     ndvi      = raw["ndvi"]
     gbif      = raw["gbif"]
     pesticide = raw["pesticide"]
+    visitation = raw.get("visitation", {})
+
+    # Latitude for climate stress calibration
+    lat = raw.get("_meta", {}).get("lat", 0.0)
 
     # ── Compute raw factor stress scores ────────────────────────────────────
     f_pest    = score_pesticide_exposure(pesticide)
     f_soil    = score_soil_fertility(soil, nasa)
-    f_floral  = score_floral_diversity(ndvi, gbif)
-    f_climate = score_climate_variability(climate)
+    f_floral  = score_floral_diversity(ndvi, gbif, visitation)
+    f_climate = score_climate_variability(climate, lat=lat)
     f_nesting = score_nesting_availability(ndvi)
 
     factor_scores = {
@@ -374,8 +420,9 @@ def compute_all_scores(raw: dict[str, Any]) -> dict[str, Any]:
     # ── Stress index label ───────────────────────────────────────────────────
     stress_label = _label_from_bands(overall_stress, STRESS_INDEX_THRESHOLDS)
 
-    # ── Crop risk ────────────────────────────────────────────────────────────
-    crop_risk = compute_crop_risks(overall_stress)
+    # ── Crop risk (zone-aware) ───────────────────────────────────────────────
+    crop_dependency = get_crop_dependency_for_zone(zone_id)
+    crop_risk = compute_crop_risks(overall_stress, zone_id=zone_id)
 
     return {
         "factor_scores":            factor_scores,
@@ -385,5 +432,6 @@ def compute_all_scores(raw: dict[str, Any]) -> dict[str, Any]:
         "habitat_suitability_score": habitat_score,
         "pollination_stress_index": stress_label,
         "crop_risk":                crop_risk,
+        "crop_dependency":          crop_dependency,
         "contribution_scores":      contribution_scores,
     }

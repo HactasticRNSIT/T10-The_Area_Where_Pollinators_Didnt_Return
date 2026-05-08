@@ -89,6 +89,14 @@ ANOMALY_THRESHOLDS = {
     "ndvi_low_critical":           0.20,
     "species_count_warning":       5,      # unique pollinator species
     "species_count_critical":      2,
+    "visitation_ratio_warning":    0.65,   # observed / expected visits per hour
+    "visitation_ratio_critical":   0.40,
+    "visitation_decline_warning":  0.25,   # 12-week decline fraction
+    "visitation_decline_critical": 0.45,
+    "timing_disruption_warning":   0.45,
+    "timing_disruption_critical":  0.70,
+    "flowering_success_warning":   0.55,
+    "flowering_success_critical":  0.35,
 
     # Nesting
     "bare_soil_warning":           0.30,   # fraction 0–1
@@ -98,17 +106,141 @@ ANOMALY_THRESHOLDS = {
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Crop pollination dependency (fraction of yield dependent on pollinators)
-# Used to compute crop_risk from the activity score
+# Geographic crop registry
+# Maps zone_id prefix → {crop: pollinator_dependency (0–1)}
+# dependency = fraction of that crop's yield relying on pollinators
+#
+# Lookup: get_crop_dependency_for_zone(zone_id) tries longest-prefix match,
+# then falls back to DEFAULT_CROP_POLLINATION_DEPENDENCY.
 # ──────────────────────────────────────────────────────────────────────────────
-CROP_POLLINATION_DEPENDENCY = {
-    "almonds":     1.00,  # 100% dependent
+
+# Default (Europe / generic)
+DEFAULT_CROP_POLLINATION_DEPENDENCY = {
+    "almonds":     1.00,
     "blueberries": 0.90,
     "canola":      0.70,
     "sunflower":   0.65,
     "wheat":       0.10,
     "maize":       0.05,
 }
+
+ZONE_CROP_REGISTRY: dict[str, dict[str, float]] = {
+    # Karnataka — Deccan Plateau oilseeds & pulses
+    "IN_KA": {
+        "sunflower":  0.90,  # primary bee-dependent oilseed of Karnataka
+        "cotton":     0.15,  # Bt cotton, some insect pollination
+        "red gram":   0.40,
+        "groundnut":  0.55,
+        "sorghum":    0.05,
+    },
+    # Rajasthan — arid drylands mustard & cumin belt
+    "IN_RJ": {
+        "mustard":    0.80,  # #1 crop; huge migratory bee demand Feb–Mar
+        "cumin":      0.65,
+        "coriander":  0.60,
+        "wheat":      0.10,
+        "sesame":     0.50,
+    },
+    # Uttar Pradesh — Malihabad mango cluster
+    "IN_UP": {
+        "mango":      0.75,  # bee-critical for fruit set
+        "guava":      0.55,
+        "sugarcane":  0.02,  # wind-pollinated
+        "wheat":      0.10,
+        "lychee":     0.80,
+    },
+    # Gujarat — cotton & groundnut semi-arid zone
+    "IN_GJ": {
+        "cotton":     0.15,  # Bt cotton; limited but present bee use
+        "groundnut":  0.55,  # significant bee benefit
+        "castor":     0.35,
+        "wheat":      0.10,
+        "sesame":     0.50,
+    },
+    # West Bengal — rice & jute floodplain
+    "IN_WB": {
+        "rice":       0.03,  # primarily wind/self-pollinated
+        "jute":       0.05,
+        "mustard":    0.80,  # rabi season crop; bee-dependent
+        "vegetables": 0.45,
+        "watermelon": 0.90,
+    },
+    # Kerala — spice coast tropical evergreen
+    "IN_KL": {
+        "cardamom":    0.95,  # almost entirely bee-pollinated
+        "black pepper": 0.60,
+        "coffee":      0.55,
+        "coconut":     0.30,
+        "rubber":      0.05,
+    },
+    # Himachal Pradesh — temperate apple belt
+    "IN_HP": {
+        "apple":      0.95,  # managed honeybee hives placed in orchards
+        "cherry":     0.90,
+        "plum":       0.70,
+        "pear":       0.75,
+        "potato":     0.10,
+    },
+    # Maharashtra — Vidarbha orange & soybean belt
+    "IN_MH": {
+        "orange":     0.75,
+        "cotton":     0.15,
+        "soybean":    0.25,
+        "sorghum":    0.05,
+        "pomegranate": 0.60,
+    },
+    # Madhya Pradesh — semi-arid sesame & soybean
+    "IN_MP": {
+        "sesame":     0.50,
+        "soybean":    0.25,
+        "wheat":      0.10,
+        "chickpea":   0.20,
+        "lentils":    0.20,
+    },
+    # Bihar — alluvial lychee & mango belt
+    "IN_BR": {
+        "lychee":     0.80,
+        "mango":      0.75,
+        "wheat":      0.10,
+        "maize":      0.05,
+        "banana":     0.10,
+    },
+    # USA Central Valley (California almonds, stone fruit)
+    "FARM_G": {
+        "almonds":    1.00,
+        "stone fruit": 0.85,
+        "tomatoes":   0.55,
+        "grapes":     0.10,
+        "canola":     0.70,
+    },
+    # USA Midwest Corn Belt
+    "FARM_H": {
+        "maize":      0.05,
+        "soybean":    0.25,
+        "sunflower":  0.65,
+        "canola":     0.70,
+        "wheat":      0.10,
+    },
+}
+
+
+def get_crop_dependency_for_zone(zone_id: str) -> dict[str, float]:
+    """
+    Return the crop–dependency dict for a given zone_id.
+
+    Matching strategy (longest prefix wins):
+      zone_id = "IN_GJ_01"  → tries "IN_GJ_01", then "IN_GJ", then "IN"
+    Falls back to DEFAULT_CROP_POLLINATION_DEPENDENCY for unknown zones.
+    """
+    if not zone_id:
+        return DEFAULT_CROP_POLLINATION_DEPENDENCY
+    # Try progressively shorter prefixes
+    parts = zone_id.split("_")
+    for length in range(len(parts), 0, -1):
+        prefix = "_".join(parts[:length])
+        if prefix in ZONE_CROP_REGISTRY:
+            return ZONE_CROP_REGISTRY[prefix]
+    return DEFAULT_CROP_POLLINATION_DEPENDENCY
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Crop risk label bands (stress_impact = dependency * overall_stress)
@@ -127,7 +259,7 @@ OPEN_METEO_VARS = [
     "temperature_2m_max",
     "temperature_2m_min",
     "precipitation_sum",
-    "windspeed_10m_max",
+    "wind_speed_10m_max",
     "et0_fao_evapotranspiration",
 ]
 
