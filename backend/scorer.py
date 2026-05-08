@@ -66,6 +66,11 @@ def _r2(value: float) -> float:
     return round(value, 2)
 
 
+def _round_dependency(value: float) -> float:
+    """Round crop dependency to coarse 5% steps to avoid false precision."""
+    return round(round(value * 20.0) / 20.0, 2)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Factor 1 – Pesticide Exposure  (weight 0.35)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -441,7 +446,10 @@ def compute_all_scores(raw: dict[str, Any], zone_id: str = "") -> dict[str, Any]
     stress_label = _label_from_bands(overall_stress, STRESS_INDEX_THRESHOLDS)
 
     # ── Crop risk (zone-aware) ───────────────────────────────────────────────
-    crop_dependency = get_crop_dependency_for_zone(zone_id)
+    crop_dependency = {
+        crop: _round_dependency(dep)
+        for crop, dep in get_crop_dependency_for_zone(zone_id).items()
+    }
     crop_risk = compute_crop_risks(overall_stress, zone_id=zone_id)
 
     return {
@@ -453,5 +461,7 @@ def compute_all_scores(raw: dict[str, Any], zone_id: str = "") -> dict[str, Any]
         "pollination_stress_index": stress_label,
         "crop_risk":                crop_risk,
         "crop_dependency":          crop_dependency,
+        "crop_dependency_basis":    "coarse literature-informed estimates, not field-calibrated measurements",
+        "factor_weights":           FACTOR_WEIGHTS,
         "contribution_scores":      contribution_scores,
     }

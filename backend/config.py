@@ -131,7 +131,7 @@ ZONE_CROP_REGISTRY: dict[str, dict[str, float]] = {
         "sunflower":  0.90,  # primary bee-dependent oilseed of Karnataka
         "cotton":     0.15,  # Bt cotton, some insect pollination
         "red gram":   0.40,
-        "groundnut":  0.55,
+        "groundnut":  0.30,
         "sorghum":    0.05,
     },
     # Rajasthan — arid drylands mustard & cumin belt
@@ -153,10 +153,10 @@ ZONE_CROP_REGISTRY: dict[str, dict[str, float]] = {
     # Gujarat — cotton & groundnut semi-arid zone
     "IN_GJ": {
         "cotton":     0.15,  # Bt cotton; limited but present bee use
-        "groundnut":  0.55,  # significant bee benefit
+        "groundnut":  0.30,  # modest bee benefit; largely self-pollinating
         "castor":     0.35,
         "wheat":      0.10,
-        "sesame":     0.50,
+        "sesame":     0.45,  # variable insect-pollination benefit; avoid high-end default
     },
     # West Bengal — rice & jute floodplain
     "IN_WB": {

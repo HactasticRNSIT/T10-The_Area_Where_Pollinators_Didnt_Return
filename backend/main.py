@@ -170,7 +170,14 @@ def _build_output(
                 "twelve_week_visits_per_hour": raw.get("visitation", {}).get("twelve_week_visits_per_hour"),
             },
             "raw_factor_stress": scores["factor_scores"],
+            "factor_weights":    scores.get("factor_weights"),
             "overall_stress":    scores["overall_stress"],
+            "crop_dependency_basis": scores.get("crop_dependency_basis"),
+            "model_limitations": (
+                "Factor scores are modelled decision-support estimates from available climate, land-cover, "
+                "species, pesticide, and mock/surrogate inputs. They should not be read as calibrated farm-level "
+                "sensor measurements or universally validated causal percentages."
+            ),
         },
     }
 
