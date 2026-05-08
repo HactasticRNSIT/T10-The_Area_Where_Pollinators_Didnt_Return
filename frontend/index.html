@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PolyNexus — Pollinator Ecosystem Analysis Platform</title>
+  <meta name="description" content="PolyNexus: A professional dark-themed scientific dashboard for real-time pollinator ecosystem monitoring, factor scoring, anomaly detection, and AI-powered biodiversity insights." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Leaflet MarkerCluster CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════ SIDEBAR -->
+<aside id="sidebar">
+  <div id="sidebar-logo">
+    <span class="logo-hex">⬡</span>
+    <span class="logo-text">Poly<strong>Nexus</strong></span>
+  </div>
+  <div id="sidebar-subtitle">Pollinator Ecosystem Intelligence</div>
+
+  <div class="sidebar-section-label">PRESET ZONES</div>
+  <ul id="zone-list"></ul>
+
+  <div class="sidebar-section-label" style="margin-top:20px;">CUSTOM ZONE</div>
+  <form id="custom-zone-form">
+    <label class="form-label">Zone ID</label>
+    <input id="custom-zone-id" type="text" placeholder="MY_FARM" maxlength="20" />
+    <label class="form-label">Latitude</label>
+    <input id="custom-lat" type="number" placeholder="52.2053" step="0.0001" min="-90" max="90" />
+    <label class="form-label">Longitude</label>
+    <input id="custom-lon" type="number" placeholder="0.1218" step="0.0001" min="-180" max="180" />
+    <button type="submit" id="analyse-btn">
+      <span id="analyse-btn-text">▶ ANALYSE ZONE</span>
+      <span id="analyse-spinner" class="spinner hidden"></span>
+    </button>
+  </form>
+
+  <div id="sidebar-status-block">
+    <div class="sidebar-section-label">API STATUS</div>
+    <div id="api-status-indicator"><span class="dot dot-amber"></span> Connecting…</div>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════════════════════════════════ MAIN CONTENT -->
+<main id="main">
+
+  <!-- ── TOP SUMMARY BAR ──────────────────────────────────────────────────── -->
+  <header id="summary-bar">
+    <div id="zone-identity">
+      <div id="zone-name-display">— SELECT A ZONE —</div>
+      <div id="zone-coords-display" class="mono dimmed">lat — · lon —</div>
+    </div>
+    <div id="zone-timestamp" class="mono dimmed">Last updated: —</div>
+    <div id="kpi-chips">
+      <div class="kpi-chip" id="kpi-activity">
+        <div class="kpi-label">Activity Score</div>
+        <div class="kpi-value mono" id="kpi-activity-val">—</div>
+        <div class="kpi-pill" id="kpi-activity-pill">—</div>
+      </div>
+      <div class="kpi-chip" id="kpi-stress">
+        <div class="kpi-label">Pollination Stress Index</div>
+        <div class="kpi-value mono" id="kpi-stress-val">—</div>
+        <div class="kpi-pill" id="kpi-stress-pill">—</div>
+      </div>
+      <div class="kpi-chip" id="kpi-habitat">
+        <div class="kpi-label">Habitat Suitability</div>
+        <div class="kpi-value mono" id="kpi-habitat-val">—</div>
+        <div class="kpi-pill" id="kpi-habitat-pill">—</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── CENTRAL GRID ──────────────────────────────────────────────────────── -->
+  <section id="central-grid">
+
+    <!-- Factor Score Cards -->
+    <div id="factor-cards-row">
+      <div class="factor-card" id="card-pesticide_exposure" data-factor="pesticide_exposure" data-weight="35">
+        <div class="factor-card-header">
+          <span class="factor-name">Pesticide Exposure</span>
+          <span class="weight-badge">35%</span>
+        </div>
+        <div class="gauge-container">
+          <canvas class="gauge-canvas" id="gauge-pesticide_exposure" width="110" height="110"></canvas>
+          <div class="gauge-center">
+            <div class="gauge-val mono" id="gval-pesticide_exposure">—</div>
+            <div class="gauge-label">stress</div>
+          </div>
+        </div>
+        <div class="sparkline-label">Sub-metrics</div>
+        <canvas class="sparkline-canvas" id="spark-pesticide_exposure" height="36"></canvas>
+      </div>
+
+      <div class="factor-card" id="card-soil_fertility" data-factor="soil_fertility" data-weight="25">
+        <div class="factor-card-header">
+          <span class="factor-name">Soil Fertility</span>
+          <span class="weight-badge">25%</span>
+        </div>
+        <div class="gauge-container">
+          <canvas class="gauge-canvas" id="gauge-soil_fertility" width="110" height="110"></canvas>
+          <div class="gauge-center">
+            <div class="gauge-val mono" id="gval-soil_fertility">—</div>
+            <div class="gauge-label">stress</div>
+          </div>
+        </div>
+        <div class="sparkline-label">Sub-metrics</div>
+        <canvas class="sparkline-canvas" id="spark-soil_fertility" height="36"></canvas>
+      </div>
+
+      <div class="factor-card" id="card-floral_diversity" data-factor="floral_diversity" data-weight="20">
+        <div class="factor-card-header">
+          <span class="factor-name">Floral Diversity</span>
+          <span class="weight-badge">20%</span>
+        </div>
+        <div class="gauge-container">
+          <canvas class="gauge-canvas" id="gauge-floral_diversity" width="110" height="110"></canvas>
+          <div class="gauge-center">
+            <div class="gauge-val mono" id="gval-floral_diversity">—</div>
+            <div class="gauge-label">stress</div>
+          </div>
+        </div>
+        <div class="sparkline-label">Sub-metrics</div>
+        <canvas class="sparkline-canvas" id="spark-floral_diversity" height="36"></canvas>
+      </div>
+
+      <div class="factor-card" id="card-climate_variability" data-factor="climate_variability" data-weight="12">
+        <div class="factor-card-header">
+          <span class="factor-name">Climate Variability</span>
+          <span class="weight-badge">12%</span>
+        </div>
+        <div class="gauge-container">
+          <canvas class="gauge-canvas" id="gauge-climate_variability" width="110" height="110"></canvas>
+          <div class="gauge-center">
+            <div class="gauge-val mono" id="gval-climate_variability">—</div>
+            <div class="gauge-label">stress</div>
+          </div>
+        </div>
+        <div class="sparkline-label">Sub-metrics</div>
+        <canvas class="sparkline-canvas" id="spark-climate_variability" height="36"></canvas>
+      </div>
+
+      <div class="factor-card" id="card-nesting_availability" data-factor="nesting_availability" data-weight="8">
+        <div class="factor-card-header">
+          <span class="factor-name">Nesting Availability</span>
+          <span class="weight-badge">8%</span>
+        </div>
+        <div class="gauge-container">
+          <canvas class="gauge-canvas" id="gauge-nesting_availability" width="110" height="110"></canvas>
+          <div class="gauge-center">
+            <div class="gauge-val mono" id="gval-nesting_availability">—</div>
+            <div class="gauge-label">stress</div>
+          </div>
+        </div>
+        <div class="sparkline-label">Sub-metrics</div>
+        <canvas class="sparkline-canvas" id="spark-nesting_availability" height="36"></canvas>
+      </div>
+    </div>
+
+    <!-- Bottom row: Map | Crop Risk | AI Insights -->
+    <div id="bottom-panels">
+
+      <!-- Zone Map -->
+      <div class="glass-panel" id="map-panel">
+        <div class="panel-header">
+          <span class="panel-title">🛰 Zone Map</span>
+          <div id="map-controls">
+            <button class="map-btn active" id="btn-satellite" onclick="setMapLayer('satellite')">Satellite</button>
+            <button class="map-btn" id="btn-osm" onclick="setMapLayer('osm')">Street</button>
+            <button class="map-btn" id="btn-heatmap" onclick="toggleHeatmap()">NDVI Heatmap</button>
+          </div>
+        </div>
+        <div id="zone-map"></div>
+        <div id="map-legend">
+          <span><span class="dot dot-green"></span>GBIF Occurrences</span>
+          <span><span class="dot" style="background:#f5a623;"></span>10 km Scan Zone</span>
+        </div>
+      </div>
+
+      <!-- Crop Risk Table -->
+      <div class="glass-panel" id="crop-panel">
+        <div class="panel-header">
+          <span class="panel-title">🌾 Crop Risk Assessment</span>
+        </div>
+        <table id="crop-table">
+          <thead>
+            <tr>
+              <th>Crop</th>
+              <th>Dependency</th>
+              <th>Risk Level</th>
+            </tr>
+          </thead>
+          <tbody id="crop-tbody">
+            <tr><td colspan="3" class="dimmed mono" style="text-align:center;padding:20px;">Awaiting analysis…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- AI Insights Panel -->
+      <div class="glass-panel" id="ai-panel">
+        <div class="panel-header">
+          <span class="panel-title">🤖 AI Insights</span>
+          <span id="ai-source-tag" class="source-tag">—</span>
+        </div>
+        <div id="ai-content">
+          <div class="ai-placeholder">Select a zone to generate biodiversity insights</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── ANOMALY FEED ──────────────────────────────────────────────────────── -->
+  <section id="anomaly-section">
+    <div class="panel-header">
+      <span class="panel-title">⚠ Anomaly &amp; Alert Feed</span>
+      <div id="anomaly-counts">
+        <span class="badge-critical" id="critical-count-badge">0 CRITICAL</span>
+        <span class="badge-warning" id="warning-count-badge">0 WARNING</span>
+      </div>
+    </div>
+    <div id="anomaly-feed">
+      <div class="ai-placeholder dimmed">No anomalies detected — run an analysis to populate the feed.</div>
+    </div>
+  </section>
+
+  <!-- ── DATA SOURCE STATUS STRIP ─────────────────────────────────────────── -->
+  <footer id="data-source-strip">
+    <span class="strip-label">DATA SOURCES</span>
+    <div class="source-item" id="src-climate" data-tip="Open-Meteo: 30-day historical climate archive (free, no key)">
+      <span class="dot dot-amber"></span><span>Open-Meteo</span>
+    </div>
+    <div class="source-item" id="src-nasa" data-tip="NASA POWER: Soil wetness & surface climate (free, no key)">
+      <span class="dot dot-amber"></span><span>NASA POWER</span>
+    </div>
+    <div class="source-item" id="src-gbif" data-tip="GBIF: Pollinator species occurrence records (free, no key)">
+      <span class="dot dot-amber"></span><span>GBIF</span>
+    </div>
+    <div class="source-item" id="src-soil" data-tip="SoilGrids / OpenLandMap: Soil pH, SOC, nitrogen (intermittent — falls back to mock)">
+      <span class="dot dot-amber"></span><span>SoilGrids</span>
+    </div>
+    <div class="source-item" id="src-ndvi" data-tip="NDVI: Derived floral coverage (mocked — satellite pipeline pending)">
+      <span class="dot dot-amber"></span><span>NDVI</span>
+    </div>
+    <div class="source-item" id="src-pesticide" data-tip="Pesticide data: Deterministic mock (real agrochemical DB pending)">
+      <span class="dot dot-amber"></span><span>Pesticide</span>
+    </div>
+    <div id="strip-tooltip"></div>
+  </footer>
+
+</main>
+
+<!-- Scripts -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="/static/app.js"></script>
+
+</body>
+</html>
