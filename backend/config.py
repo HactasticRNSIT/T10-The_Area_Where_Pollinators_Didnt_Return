@@ -27,11 +27,12 @@ API_ENDPOINTS = {
 # Factor weights (must sum to 1.0)
 # ──────────────────────────────────────────────────────────────────────────────
 FACTOR_WEIGHTS = {
-    "pesticide_exposure":  0.35,
-    "soil_fertility":      0.25,
-    "floral_diversity":    0.20,
+    "pesticide_exposure":  0.32,
+    "soil_fertility":      0.23,
+    "floral_diversity":    0.17,
     "climate_variability": 0.12,
     "nesting_availability": 0.08,
+    "pollination_factor":  0.08,
 }
 
 # ──────────────────────────────────────────────────────────────────────────────

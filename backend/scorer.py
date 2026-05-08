@@ -160,7 +160,6 @@ def score_soil_fertility(
 def score_floral_diversity(
     ndvi: dict[str, Any],
     gbif: dict[str, Any],
-    visitation: dict[str, Any] | None = None,
 ) -> float:
     """
     Compute floral diversity stress score [0, 1].
@@ -171,11 +170,6 @@ def score_floral_diversity(
     flower_cov    = ndvi.get("flowering_coverage", 0.35)
     patch_div     = ndvi.get("patch_diversity", 0.45)
     species_count = gbif.get("species_count", 5)
-    visitation = visitation or {}
-    visit_ratio = visitation.get("visitation_ratio", 0.75)
-    decline_rate = visitation.get("decline_rate_12w", 0.0)
-    timing_disruption = visitation.get("pollination_timing_disruption", 0.25)
-    flowering_success = visitation.get("flowering_success_rate", 0.70)
 
     # NDVI stress: below 0.35 is sparse vegetation
     ndvi_stress = _linear_stress(0.35 - ndvi_val, 0.0, 0.35)
@@ -189,20 +183,43 @@ def score_floral_diversity(
     # Species richness stress: < 10 is limited; < 2 is critical
     species_stress = _clamp(1.0 - species_count / 12.0)
 
-    # Visitation stress: directly model reduced visits and disrupted timing.
-    visitation_stress = _clamp(
-        _linear_stress(0.75 - visit_ratio, 0.0, 0.75) * 0.45 +
-        _clamp(decline_rate / 0.55) * 0.25 +
-        _clamp(timing_disruption) * 0.20 +
-        _linear_stress(0.65 - flowering_success, 0.0, 0.65) * 0.10
+    raw = (
+        ndvi_stress    * 0.35 +
+        flower_stress  * 0.25 +
+        patch_stress   * 0.20 +
+        species_stress * 0.20
     )
+    return _clamp(raw)
+
+
+def score_pollination_factor(visitation: dict[str, Any]) -> float:
+    """
+    Compute pollination-process stress [0, 1].
+
+    Uses the modelled visitation source generated from available data:
+    GBIF pollinator observations, NDVI/floral cover, pesticide pressure,
+    and climate/drought signals. This turns the problem statement's reduced
+    visitation, timing disruption, and uneven flowering success into a first
+    class factor.
+    """
+    visit_ratio = visitation.get("visitation_ratio", 0.75)
+    decline_rate = visitation.get("decline_rate_12w", 0.0)
+    timing_disruption = visitation.get("pollination_timing_disruption", 0.25)
+    flowering_success = visitation.get("flowering_success_rate", 0.70)
+    recovery_volatility = visitation.get("recovery_volatility", 0.25)
+
+    visit_stress = _linear_stress(0.75 - visit_ratio, 0.0, 0.75)
+    decline_stress = _clamp(decline_rate / 0.55)
+    timing_stress = _clamp(timing_disruption)
+    flowering_stress = _linear_stress(0.65 - flowering_success, 0.0, 0.65)
+    volatility_stress = _clamp(recovery_volatility)
 
     raw = (
-        ndvi_stress        * 0.22 +
-        flower_stress      * 0.18 +
-        patch_stress       * 0.15 +
-        species_stress     * 0.20 +
-        visitation_stress  * 0.25
+        visit_stress      * 0.35 +
+        decline_stress    * 0.25 +
+        timing_stress     * 0.20 +
+        flowering_stress  * 0.15 +
+        volatility_stress * 0.05
     )
     return _clamp(raw)
 
@@ -361,6 +378,7 @@ def compute_all_scores(raw: dict[str, Any], zone_id: str = "") -> dict[str, Any]
             "floral_diversity":    float,
             "climate_variability": float,
             "nesting_availability": float,
+            "pollination_factor":   float,
         },
         "overall_stress":           float,   # 0–1 weighted sum
         "activity_score":           float,   # 0–100
@@ -385,9 +403,10 @@ def compute_all_scores(raw: dict[str, Any], zone_id: str = "") -> dict[str, Any]
     # ── Compute raw factor stress scores ────────────────────────────────────
     f_pest    = score_pesticide_exposure(pesticide)
     f_soil    = score_soil_fertility(soil, nasa)
-    f_floral  = score_floral_diversity(ndvi, gbif, visitation)
+    f_floral  = score_floral_diversity(ndvi, gbif)
     f_climate = score_climate_variability(climate, lat=lat)
     f_nesting = score_nesting_availability(ndvi)
+    f_pollination = score_pollination_factor(visitation)
 
     factor_scores = {
         "pesticide_exposure":   _r2(f_pest),
@@ -395,6 +414,7 @@ def compute_all_scores(raw: dict[str, Any], zone_id: str = "") -> dict[str, Any]
         "floral_diversity":     _r2(f_floral),
         "climate_variability":  _r2(f_climate),
         "nesting_availability": _r2(f_nesting),
+        "pollination_factor":   _r2(f_pollination),
     }
 
     # ── Weighted stress sum ──────────────────────────────────────────────────

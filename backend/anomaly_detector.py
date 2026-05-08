@@ -426,7 +426,7 @@ def _check_visitation(visitation: dict[str, Any]) -> list[dict]:
 
     if ratio <= T["visitation_ratio_critical"]:
         anomalies.append(_anomaly(
-            "floral_diversity", "visitation_ratio", "CRITICAL",
+            "pollination_factor", "visitation_ratio", "CRITICAL",
             ratio, T["visitation_ratio_critical"],
             f"Observed pollinator visitation is only {ratio*100:.0f}% of the expected level "
             f"({visits:.1f} vs {expected:.1f} visits/hour), indicating severe local visitation collapse.",
@@ -435,7 +435,7 @@ def _check_visitation(visitation: dict[str, Any]) -> list[dict]:
         ))
     elif ratio <= T["visitation_ratio_warning"]:
         anomalies.append(_anomaly(
-            "floral_diversity", "visitation_ratio", "WARNING",
+            "pollination_factor", "visitation_ratio", "WARNING",
             ratio, T["visitation_ratio_warning"],
             f"Pollinator visitation is reduced to {ratio*100:.0f}% of expected activity "
             f"({visits:.1f} vs {expected:.1f} visits/hour).",
@@ -444,7 +444,7 @@ def _check_visitation(visitation: dict[str, Any]) -> list[dict]:
 
     if decline >= T["visitation_decline_critical"]:
         anomalies.append(_anomaly(
-            "floral_diversity", "decline_rate_12w", "CRITICAL",
+            "pollination_factor", "decline_rate_12w", "CRITICAL",
             decline, T["visitation_decline_critical"],
             f"Visitation has declined by {decline*100:.0f}% over the last 12 weeks, matching the problem "
             f"pattern of gradual pollinator disappearance.",
@@ -453,7 +453,7 @@ def _check_visitation(visitation: dict[str, Any]) -> list[dict]:
         ))
     elif decline >= T["visitation_decline_warning"]:
         anomalies.append(_anomaly(
-            "floral_diversity", "decline_rate_12w", "WARNING",
+            "pollination_factor", "decline_rate_12w", "WARNING",
             decline, T["visitation_decline_warning"],
             f"Visitation has fallen by {decline*100:.0f}% over 12 weeks, suggesting an early decline signal.",
             "Repeat fixed-transect pollinator counts for the next 3 weeks and preserve current flowering patches.",
@@ -461,14 +461,14 @@ def _check_visitation(visitation: dict[str, Any]) -> list[dict]:
 
     if timing >= T["timing_disruption_critical"]:
         anomalies.append(_anomaly(
-            "floral_diversity", "pollination_timing_disruption", "CRITICAL",
+            "pollination_factor", "pollination_timing_disruption", "CRITICAL",
             timing, T["timing_disruption_critical"],
             f"Pollination timing disruption is {timing:.2f}, so visits are poorly aligned with crop flowering.",
             "Extend forage availability before and after the crop bloom using overlapping flowering species.",
         ))
     elif timing >= T["timing_disruption_warning"]:
         anomalies.append(_anomaly(
-            "floral_diversity", "pollination_timing_disruption", "WARNING",
+            "pollination_factor", "pollination_timing_disruption", "WARNING",
             timing, T["timing_disruption_warning"],
             f"Pollination timing disruption is {timing:.2f}; visits may be missing peak flowering windows.",
             "Plant early and late flowering margin species to bridge the crop bloom timing gap.",
@@ -476,14 +476,14 @@ def _check_visitation(visitation: dict[str, Any]) -> list[dict]:
 
     if flowering <= T["flowering_success_critical"]:
         anomalies.append(_anomaly(
-            "floral_diversity", "flowering_success_rate", "CRITICAL",
+            "pollination_factor", "flowering_success_rate", "CRITICAL",
             flowering, T["flowering_success_critical"],
             f"Flowering success is only {flowering*100:.0f}%, pointing to uneven pollination outcomes.",
             "Prioritise managed pollinator support during the next bloom and protect all open flowers from spray drift.",
         ))
     elif flowering <= T["flowering_success_warning"]:
         anomalies.append(_anomaly(
-            "floral_diversity", "flowering_success_rate", "WARNING",
+            "pollination_factor", "flowering_success_rate", "WARNING",
             flowering, T["flowering_success_warning"],
             f"Flowering success is {flowering*100:.0f}%, below the expected level for a stable crop cycle.",
             "Survey flower-to-fruit set across representative rows and add supplemental forage near low-performing rows.",
