@@ -500,22 +500,6 @@ thead th {
   word-break: break-word;
 }
 
-.source-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-bottom: 20px;
-}
-
-.source-chip {
-  color: var(--muted);
-  background: #10161d;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 12px;
-}
-
 ::-webkit-scrollbar {
   width: 9px;
   height: 9px;
