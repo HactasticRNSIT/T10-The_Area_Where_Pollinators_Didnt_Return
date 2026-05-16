@@ -1,7 +1,8 @@
 
 from typing import Any
 
-from config import ANOMALY_THRESHOLDS as T
+from config import ANOMALY_THRESHOLDS as _GLOBAL_T
+from config import get_anomaly_thresholds_for_zone  # Fix 8
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -125,7 +126,7 @@ def _anomaly(
 # Factor-specific checkers
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _check_pesticide(pesticide: dict[str, Any]) -> list[dict]:
+def _check_pesticide(pesticide: dict[str, Any], T: dict) -> list[dict]:
     anomalies = []
     ppm   = pesticide.get("usage_ppm", 0)
     freq  = pesticide.get("applications_per_month", 0)
@@ -197,6 +198,7 @@ def _check_pesticide(pesticide: dict[str, Any]) -> list[dict]:
 def _check_soil(
     soil: dict[str, Any],
     nasa: dict[str, Any],
+    T: dict,
 ) -> list[dict]:
     anomalies = []
     ph         = soil.get("ph", 6.5)
@@ -292,7 +294,7 @@ def _check_soil(
     return anomalies
 
 
-def _check_climate(climate: dict[str, Any]) -> list[dict]:
+def _check_climate(climate: dict[str, Any], T: dict) -> list[dict]:
     anomalies = []
     temp_std     = climate.get("temp_std_c", 4.0)
     total_precip = climate.get("total_precipitation_mm", 48.0)
@@ -367,6 +369,7 @@ def _check_climate(climate: dict[str, Any]) -> list[dict]:
 def _check_floral(
     ndvi: dict[str, Any],
     gbif: dict[str, Any],
+    T: dict,
 ) -> list[dict]:
     anomalies = []
     ndvi_val      = ndvi.get("ndvi", 0.50)
@@ -415,7 +418,7 @@ def _check_floral(
     return anomalies
 
 
-def _check_visitation(visitation: dict[str, Any]) -> list[dict]:
+def _check_visitation(visitation: dict[str, Any], T: dict) -> list[dict]:
     anomalies = []
     ratio = visitation.get("visitation_ratio", 1.0)
     decline = visitation.get("decline_rate_12w", 0.0)
@@ -492,7 +495,7 @@ def _check_visitation(visitation: dict[str, Any]) -> list[dict]:
     return anomalies
 
 
-def _check_nesting(ndvi: dict[str, Any]) -> list[dict]:
+def _check_nesting(ndvi: dict[str, Any], T: dict) -> list[dict]:
     anomalies = []
     bare_soil   = ndvi.get("bare_soil_fraction", 0.25)
     disturbance = ndvi.get("disturbance_score", 0.35)
@@ -548,23 +551,26 @@ def detect_anomalies(raw: dict[str, Any], zone_id: str = "") -> list[dict[str, A
     """
     Run all rule-based checks against the raw data bundle.
 
+    Fix 8: loads zone-aware thresholds (agro-climatic overrides) so tropical,
+    arid, and temperate zones are not falsely penalised by a single global table.
+
     Parameters
     ----------
     raw     : dict   Raw data bundle from fetch_all()
-    zone_id : str    Zone identifier — used to localise recommended actions
-                     so Indian zones receive India-appropriate guidance instead
-                     of UK-centric plant species and institutions.
-
-    Returns a list of anomaly dicts, sorted by severity (CRITICAL first).
+    zone_id : str    Zone identifier — used for threshold overrides (Fix 8)
+                     and action localisation.
     """
+    # Fix 8: resolve zone-specific thresholds once and inject into checkers
+    T = get_anomaly_thresholds_for_zone(zone_id)  # noqa: N806
+
     anomalies: list[dict] = []
 
-    anomalies.extend(_check_pesticide(raw["pesticide"]))
-    anomalies.extend(_check_soil(raw["soil"], raw["nasa"]))
-    anomalies.extend(_check_climate(raw["climate"]))
-    anomalies.extend(_check_floral(raw["ndvi"], raw["gbif"]))
-    anomalies.extend(_check_visitation(raw.get("visitation", {})))
-    anomalies.extend(_check_nesting(raw["ndvi"]))
+    anomalies.extend(_check_pesticide(raw["pesticide"], T))
+    anomalies.extend(_check_soil(raw["soil"], raw["nasa"], T))
+    anomalies.extend(_check_climate(raw["climate"], T))
+    anomalies.extend(_check_floral(raw["ndvi"], raw["gbif"], T))
+    anomalies.extend(_check_visitation(raw.get("visitation", {}), T))
+    anomalies.extend(_check_nesting(raw["ndvi"], T))
 
     # Localise all recommended_action strings to the zone's region
     for a in anomalies:

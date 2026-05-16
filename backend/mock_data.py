@@ -84,108 +84,8 @@ def get_mock_soil_data(lat: float, lon: float) -> dict[str, Any]:
     }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# NDVI / Floral diversity mock
-# ──────────────────────────────────────────────────────────────────────────────
-
-def get_mock_ndvi_data(lat: float, lon: float) -> dict[str, Any]:
-    """
-    Return mocked NDVI and floral diversity metrics.
-
-    NDVI (Normalised Difference Vegetation Index):
-        Range -1 to 1; agricultural cropland typically 0.2–0.8.
-    Flowering coverage: fraction 0–1.
-    """
-    s = _zone_seed(lat, lon)
-
-    # NDVI: range [0.15, 0.85]
-    ndvi = 0.50 + _jitter(s, 2.3, 0.28)
-    ndvi = max(0.15, min(0.85, ndvi))
-
-    # Flowering coverage: 0–1
-    flower_cov = 0.35 + _jitter(s, 5.1, 0.25)
-    flower_cov = max(0.02, min(0.90, flower_cov))
-
-    # Vegetation patch diversity (Shannon H proxy, 0–1)
-    patch_diversity = 0.45 + _jitter(s, 8.4, 0.30)
-    patch_diversity = max(0.05, min(1.0, patch_diversity))
-
-    # Hedgerow density: fraction of field perimeter with hedgerows, 0–1
-    hedgerow_density = 0.30 + _jitter(s, 9.9, 0.25)
-    hedgerow_density = max(0.0, min(1.0, hedgerow_density))
-
-    # Dead wood index: 0–1
-    dead_wood = 0.20 + _jitter(s, 11.2, 0.15)
-    dead_wood = max(0.0, min(1.0, dead_wood))
-
-    # Bare soil fraction: 0–1
-    bare_soil = 0.25 + _jitter(s, 12.7, 0.20)
-    bare_soil = max(0.0, min(0.75, bare_soil))
-
-    # Disturbance score (tillage, traffic, etc.): 0–1
-    disturbance = 0.35 + _jitter(s, 14.3, 0.25)
-    disturbance = max(0.0, min(1.0, disturbance))
-
-    return {
-        "source":            "mock_modis_ndvi",
-        "ndvi":              round(ndvi, 3),
-        "flowering_coverage": round(flower_cov, 3),
-        "patch_diversity":   round(patch_diversity, 3),
-        "hedgerow_density":  round(hedgerow_density, 3),
-        "dead_wood_index":   round(dead_wood, 3),
-        "bare_soil_fraction": round(bare_soil, 3),
-        "disturbance_score": round(disturbance, 3),
-    }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Pesticide usage mock
-# ──────────────────────────────────────────────────────────────────────────────
-
-def get_mock_pesticide_data(lat: float, lon: float) -> dict[str, Any]:
-    """
-    Return mocked pesticide usage data for a zone.
-
-    There is no public free API for field-level pesticide tracking;
-    this mock provides internally consistent test data.
-    """
-    s = _zone_seed(lat, lon)
-
-    # Usage in ppm (parts per million), range [0.5, 25]
-    usage_ppm = 5.0 + _jitter(s, 3.3, 9.5)
-    usage_ppm = max(0.5, min(25.0, usage_ppm))
-
-    # Applications per month, integer 0–8
-    raw_freq = 2.5 + _jitter(s, 6.6, 2.5)
-    applications_per_month = max(0, min(8, round(raw_freq)))
-
-    # Days since last application, range [1, 45]
-    raw_days = 14 + _jitter(s, 9.9, 12)
-    days_since_last = max(1, min(45, round(raw_days)))
-
-    # Pesticide type (affects toxicity weight)
-    type_seed = (s + 0.13) % 1.0
-    if type_seed < 0.35:
-        pesticide_type = "neonicotinoid"   # high bee toxicity
-        toxicity_multiplier = 1.40
-    elif type_seed < 0.65:
-        pesticide_type = "pyrethroid"      # moderate toxicity
-        toxicity_multiplier = 1.10
-    elif type_seed < 0.85:
-        pesticide_type = "organophosphate" # moderate-high
-        toxicity_multiplier = 1.20
-    else:
-        pesticide_type = "biopesticide"    # low toxicity
-        toxicity_multiplier = 0.60
-
-    return {
-        "source":                "mock_pesticide",
-        "usage_ppm":             round(usage_ppm, 2),
-        "applications_per_month": applications_per_month,
-        "days_since_last_application": days_since_last,
-        "pesticide_type":        pesticide_type,
-        "toxicity_multiplier":   toxicity_multiplier,
-    }
 
 
 def get_mock_visitation_data(
@@ -256,15 +156,131 @@ def get_mock_visitation_data(
 # Full mock bundle (used when all real sources fail)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Fix 9: Dual-source pesticide proxy (replaces get_mock_pesticide_data)
+# Source A: GOI State-wise Demand 2025-26 (MT formulation) -- Indian zones
+# Source B: UN FAO FAOSTAT 2023 (tonnes AI) -- global zones
+# ──────────────────────────────────────────────────────────────────────────────
+
+_STATE_PESTICIDE_DEMAND_MT: dict[str, float] = {
+    "IN_AP": 1760.0, "IN_BR": 1295.0, "IN_CG": 1850.0, "IN_GA":   33.06,
+    "IN_GJ": 2078.0, "IN_HR": 4215.0, "IN_HP":  453.5, "IN_JH": 1470.2,
+    "IN_KA": 2100.0, "IN_KL":  509.6, "IN_MP":  765.9, "IN_MH":10104.0,
+    "IN_OD": 1405.0, "IN_PB": 5355.0, "IN_RJ": 2020.0, "IN_TN": 2175.0,
+    "IN_TG": 6469.0, "IN_UP":14980.0, "IN_UK":  217.2, "IN_WB": 4570.0,
+    "IN_AR":    3.6, "IN_AS":  640.9, "IN_MN":  43.33, "IN_MZ":   48.67,
+    "IN_NL":  24.05, "IN_JK": 8828.5,
+}
+
+_COUNTRY_FAO_TONNES_2023: dict[str, float] = {
+    "USA": 429501.0, "BRA": 800652.0, "CHN": 217996.0,
+    "ARG": 262507.0, "AUS": 182264.0, "FRA":  67621.0,
+    "DEU":  46038.0, "GBR":  14688.0,
+}
+
+_ZONE_COUNTRY_MAP: dict[str, str] = {
+    "FARM_G": "USA", "FARM_H": "USA",
+    "BR": "BRA", "CN": "CHN", "FR": "FRA",
+    "DE": "DEU", "GB": "GBR", "AU": "AUS",
+}
+
+_CROP_PESTICIDE_TYPE: dict[str, tuple[str, float]] = {
+    "apple":        ("neonicotinoid",   1.40),
+    "cherry":       ("neonicotinoid",   1.40),
+    "almonds":      ("neonicotinoid",   1.40),
+    "canola":       ("neonicotinoid",   1.40),
+    "stone fruit":  ("neonicotinoid",   1.40),
+    "cotton":       ("organophosphate", 1.20),
+    "rice":         ("organophosphate", 1.20),
+    "orange":       ("organophosphate", 1.20),
+    "pomegranate":  ("organophosphate", 1.20),
+    "sunflower":    ("pyrethroid",      1.10),
+    "mustard":      ("pyrethroid",      1.10),
+    "wheat":        ("pyrethroid",      1.10),
+    "soybean":      ("pyrethroid",      1.10),
+    "mango":        ("pyrethroid",      1.10),
+    "groundnut":    ("pyrethroid",      1.10),
+    "sesame":       ("pyrethroid",      1.10),
+    "maize":        ("pyrethroid",      1.10),
+    "tomatoes":     ("pyrethroid",      1.10),
+    "cardamom":     ("biopesticide",    0.60),
+    "coffee":       ("biopesticide",    0.60),
+    "black pepper": ("biopesticide",    0.60),
+    "rubber":       ("biopesticide",    0.60),
+    "default":      ("pyrethroid",      1.10),
+}
+
+
+def compute_pesticide_proxy(zone_id: str) -> dict[str, Any]:
+    """Derive pesticide data from real regional statistics + crop profiles.
+    Priority: Indian state data (Excel 2025-26)
+             -> FAO country data (FAOSTAT 2023)
+             -> conservative national-average fallback.
+    """
+    from config import get_crop_dependency_for_zone
+
+    demand_mt = None
+    source_label = "state_statistics_and_crop_model"
+
+    if zone_id:
+        parts = zone_id.split("_")
+        for length in range(len(parts), 0, -1):
+            prefix = "_".join(parts[:length])
+            if prefix in _STATE_PESTICIDE_DEMAND_MT:
+                demand_mt = _STATE_PESTICIDE_DEMAND_MT[prefix]
+                break
+        if demand_mt is None:
+            for length in range(len(parts), 0, -1):
+                prefix = "_".join(parts[:length])
+                cc = _ZONE_COUNTRY_MAP.get(prefix)
+                if cc and cc in _COUNTRY_FAO_TONNES_2023:
+                    demand_mt = _COUNTRY_FAO_TONNES_2023[cc] / 28.0
+                    source_label = "fao_country_statistics_and_crop_model"
+                    break
+
+    if demand_mt is None:
+        demand_mt = 2000.0
+
+    usage_ppm = round(max(1.0, min(15.0, demand_mt / 800.0)), 2)
+    if usage_ppm < 3.0:
+        apps = 1
+    elif usage_ppm < 6.0:
+        apps = 3
+    elif usage_ppm < 10.0:
+        apps = 5
+    else:
+        apps = 7
+
+    crops = get_crop_dependency_for_zone(zone_id)
+    dominant_crop = max(crops, key=crops.get) if crops else "default"
+    p_type, toxicity = _CROP_PESTICIDE_TYPE.get(dominant_crop, _CROP_PESTICIDE_TYPE["default"])
+
+    return {
+        "source":                      source_label,
+        "state_demand_mt_reference":   round(demand_mt, 2),
+        "usage_ppm":                   usage_ppm,
+        "applications_per_month":      apps,
+        "days_since_last_application": 14,
+        "pesticide_type":              p_type,
+        "toxicity_multiplier":         toxicity,
+        "_fetch_error":                None,
+    }
+
 def get_full_mock_bundle(lat: float, lon: float) -> dict[str, Any]:
     """
     Return all mock data in a single call.  Used as the complete fallback
     when live API calls fail during development or testing.
     """
+    neutral_ndvi = {
+        "source":"agromonitoring_unavailable","ndvi":0.45,"flowering_coverage":0.30,
+        "patch_diversity":0.40,"hedgerow_density":0.20,"dead_wood_index":0.18,
+        "bare_soil_fraction":0.25,"disturbance_score":0.30,"decline_rate_12w":0.10,
+    }
     bundle = {
         "soil":      get_mock_soil_data(lat, lon),
-        "ndvi":      get_mock_ndvi_data(lat, lon),
-        "pesticide": get_mock_pesticide_data(lat, lon),
+        "ndvi":      neutral_ndvi,
+        "pesticide": compute_pesticide_proxy(""),
     }
     bundle["climate"] = {
         "source": "mock_open_meteo",

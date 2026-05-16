@@ -56,7 +56,7 @@ def analyse_zone(
     dict  Fully structured JSON-serialisable output
     """
     # ── 1. Data Fetching ────────────────────────────────────────────────────
-    raw = fetch_all(lat, lon)
+    raw = fetch_all(lat, lon, zone_id=zone_id)
 
     # Inject zone metadata so scorer sub-functions can read lat + zone_id
     # without changing every function signature in the hot path.
