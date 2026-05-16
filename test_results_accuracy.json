@@ -1,0 +1,622 @@
+[
+  {
+    "zone_id": "IN_KA_TEST_01",
+    "latitude": 12.9716,
+    "longitude": 77.5946,
+    "analysed_at": "2026-05-16T16:28:01.447157+00:00",
+    "activity_score": 76.56,
+    "activity_label": "Moderate",
+    "contribution_scores": {
+      "pesticide_exposure": 10.26,
+      "soil_fertility": 6.2,
+      "floral_diversity": 0.68,
+      "climate_variability": 2.8,
+      "nesting_availability": 1.26,
+      "pollination_factor": 2.24
+    },
+    "habitat_suitability_score": 84.32,
+    "pollination_stress_index": "Low",
+    "anomalies": [
+      {
+        "factor": "soil_fertility",
+        "variable": "organic_carbon_g_per_kg",
+        "severity": "CRITICAL",
+        "observed_value": 0.64,
+        "threshold": 0.8,
+        "description": "Organic carbon of 0.64 g/kg is critically depleted; soil food web and moisture retention have collapsed, making plant establishment for pollinators extremely difficult.",
+        "recommended_action": "Apply 5 t/ha of well-rotted farmyard manure or biochar immediately; plant a mixed legume-grass cover crop and leave undisturbed for 18 months."
+      },
+      {
+        "factor": "climate_variability",
+        "variable": "drought_index",
+        "severity": "CRITICAL",
+        "observed_value": 1.0,
+        "threshold": 0.8,
+        "description": "Drought index of 1.00 (scale 0\u20131) indicates severe moisture deficit; evapotranspiration is drastically exceeding rainfall over the past 30 days.",
+        "recommended_action": "Activate all available irrigation systems on pollinator habitat areas; report drought conditions to the District Agriculture Officer / KVK for emergency support."
+      },
+      {
+        "factor": "climate_variability",
+        "variable": "total_precipitation_mm",
+        "severity": "WARNING",
+        "observed_value": 13.7,
+        "threshold": 10.0,
+        "description": "Rainfall of 13.7 mm over 30 days is 16.3 mm below the recommended minimum \u2013 expect reduced nectar concentration.",
+        "recommended_action": "Check field-margin flowering plant health weekly; prepare drip-irrigation lines for wildflower strips and activate if the 7-day forecast shows less than 10 mm."
+      },
+      {
+        "factor": "pollination_factor",
+        "variable": "visitation_ratio",
+        "severity": "WARNING",
+        "observed_value": 0.645,
+        "threshold": 0.65,
+        "description": "Pollinator visitation is reduced to 64% of expected activity (18.8 vs 29.2 visits/hour).",
+        "recommended_action": "Add staggered flowering strips beside the crop edge and pause non-essential sprays during bloom."
+      },
+      {
+        "factor": "pollination_factor",
+        "variable": "flowering_success_rate",
+        "severity": "WARNING",
+        "observed_value": 0.46,
+        "threshold": 0.55,
+        "description": "Flowering success is 46%, below the expected level for a stable crop cycle.",
+        "recommended_action": "Survey flower-to-fruit set across representative rows and add supplemental forage near low-performing rows."
+      }
+    ],
+    "crop_risk": {
+      "sunflower": "Moderate",
+      "cotton": "Low",
+      "red gram": "Low",
+      "groundnut": "Low",
+      "coffee": "Low"
+    },
+    "crop_dependency": {
+      "sunflower": 0.9,
+      "cotton": 0.15,
+      "red gram": 0.4,
+      "groundnut": 0.3,
+      "coffee": 0.55
+    },
+    "biodiversity_insight": "Soil fertility loss is the primary threat here, severely depleting organic carbon and collapsing the soil food web, which will cut crop yields by an estimated 20-30% this season.",
+    "top_intervention": "Apply 5 tons per hectare of organic compost during the next pre-monsoon season to restore soil health and support pollinators.",
+    "_meta": {
+      "insight_source": "groq",
+      "anomaly_count": 5,
+      "critical_count": 2,
+      "warning_count": 3,
+      "data_sources": {
+        "climate": "open_meteo",
+        "nasa": "nasa_power",
+        "gbif": "gbif",
+        "soil": "openlandmap_stac_mock",
+        "ndvi": "agromonitoring_unavailable",
+        "pesticide": "state_statistics_and_crop_model",
+        "visitation": "modelled_visitation"
+      },
+      "data_quality": {
+        "climate": "live",
+        "nasa": "live",
+        "gbif": "live",
+        "soil": "mock",
+        "ndvi": "live",
+        "pesticide": "live",
+        "visitation": "modelled"
+      },
+      "visitation_summary": {
+        "avg_visitations_per_hour": 18.81,
+        "expected_visitations_per_hour": 29.16,
+        "visitation_ratio": 0.645,
+        "decline_rate_12w": 0.237,
+        "pollination_timing_disruption": 0.303,
+        "flowering_success_rate": 0.46,
+        "twelve_week_visits_per_hour": [
+          26.95,
+          23.83,
+          20.09,
+          20.01,
+          21.27,
+          20.83,
+          20.92,
+          23.0,
+          23.05,
+          19.1,
+          16.0,
+          17.08
+        ]
+      },
+      "raw_factor_stress": {
+        "pesticide_exposure": 0.27,
+        "soil_fertility": 0.31,
+        "floral_diversity": 0.04,
+        "climate_variability": 0.28,
+        "nesting_availability": 0.18,
+        "pollination_factor": 0.28
+      },
+      "factor_weights": {
+        "pesticide_exposure": 0.38,
+        "soil_fertility": 0.2,
+        "floral_diversity": 0.17,
+        "climate_variability": 0.1,
+        "nesting_availability": 0.07,
+        "pollination_factor": 0.08
+      },
+      "overall_stress": 0.23,
+      "crop_dependency_basis": "coarse literature-informed estimates, not field-calibrated measurements",
+      "model_limitations": "Factor scores are modelled decision-support estimates from available climate, land-cover, species, pesticide, and mock/surrogate inputs. They should not be read as calibrated farm-level sensor measurements or universally validated causal percentages."
+    }
+  },
+  {
+    "zone_id": "IN_RJ_TEST_01",
+    "latitude": 26.9124,
+    "longitude": 75.7873,
+    "analysed_at": "2026-05-16T16:28:27.406452+00:00",
+    "activity_score": 76.23,
+    "activity_label": "Moderate",
+    "contribution_scores": {
+      "pesticide_exposure": 6.75,
+      "soil_fertility": 4.6,
+      "floral_diversity": 0.6,
+      "climate_variability": 7.48,
+      "nesting_availability": 1.44,
+      "pollination_factor": 2.9
+    },
+    "habitat_suitability_score": 86.53,
+    "pollination_stress_index": "Low",
+    "anomalies": [
+      {
+        "factor": "climate_variability",
+        "variable": "total_precipitation_mm",
+        "severity": "CRITICAL",
+        "observed_value": 1.6,
+        "threshold": 15.0,
+        "description": "Only 1.6 mm of rainfall in 30 days \u2013 a deficit of 28.4 mm from the minimum threshold; nectar secretion in most flowers drops by >70% under this drought.",
+        "recommended_action": "Install supplementary water stations (shallow dishes with pebbles) at 50 m intervals across the zone; apply emergency irrigation to wildflower margin strips at 5 mm/day."
+      },
+      {
+        "factor": "climate_variability",
+        "variable": "drought_index",
+        "severity": "CRITICAL",
+        "observed_value": 1.0,
+        "threshold": 0.88,
+        "description": "Drought index of 1.00 (scale 0\u20131) indicates severe moisture deficit; evapotranspiration is drastically exceeding rainfall over the past 30 days.",
+        "recommended_action": "Activate all available irrigation systems on pollinator habitat areas; report drought conditions to the District Agriculture Officer / KVK for emergency support."
+      },
+      {
+        "factor": "soil_fertility",
+        "variable": "ph",
+        "severity": "WARNING",
+        "observed_value": 5.31,
+        "threshold": 5.5,
+        "description": "Soil pH of 5.31 is outside the optimal range for pollinator-supporting wildflowers (6.0\u20137.0).",
+        "recommended_action": "Apply 1 t/ha ground limestone and incorporate with shallow tillage."
+      },
+      {
+        "factor": "soil_fertility",
+        "variable": "root_zone_wetness",
+        "severity": "WARNING",
+        "observed_value": 0.2,
+        "threshold": 0.25,
+        "description": "Root-zone moisture of 0.20 is in the drought-stress zone for most flowering forbs.",
+        "recommended_action": "Apply mulch (straw or wood chip, 5 cm depth) to field-margin plantings to reduce evaporation and maintain moisture above 0.30."
+      },
+      {
+        "factor": "pollination_factor",
+        "variable": "pollination_timing_disruption",
+        "severity": "WARNING",
+        "observed_value": 0.495,
+        "threshold": 0.45,
+        "description": "Pollination timing disruption is 0.49; visits may be missing peak flowering windows.",
+        "recommended_action": "Plant early and late flowering margin species to bridge the crop bloom timing gap."
+      },
+      {
+        "factor": "pollination_factor",
+        "variable": "flowering_success_rate",
+        "severity": "WARNING",
+        "observed_value": 0.464,
+        "threshold": 0.55,
+        "description": "Flowering success is 46%, below the expected level for a stable crop cycle.",
+        "recommended_action": "Survey flower-to-fruit set across representative rows and add supplemental forage near low-performing rows."
+      }
+    ],
+    "crop_risk": {
+      "mustard": "Low",
+      "cumin": "Low",
+      "coriander": "Low",
+      "wheat": "Low",
+      "bajra": "Low"
+    },
+    "crop_dependency": {
+      "mustard": 0.8,
+      "cumin": 0.65,
+      "coriander": 0.6,
+      "wheat": 0.1,
+      "bajra": 0.35
+    },
+    "biodiversity_insight": "Drought is the primary threat here, severely reducing nectar secretion in flowers, which will cut crop yields by an estimated 30-40% this season if left unaddressed.",
+    "top_intervention": "Irrigate immediately with 20 mm of water during the next flowering week to support foraging pollinators.",
+    "_meta": {
+      "insight_source": "groq",
+      "anomaly_count": 6,
+      "critical_count": 2,
+      "warning_count": 4,
+      "data_sources": {
+        "climate": "open_meteo",
+        "nasa": "nasa_power",
+        "gbif": "gbif",
+        "soil": "openlandmap_stac_mock",
+        "ndvi": "agromonitoring_unavailable",
+        "pesticide": "state_statistics_and_crop_model",
+        "visitation": "modelled_visitation"
+      },
+      "data_quality": {
+        "climate": "live",
+        "nasa": "live",
+        "gbif": "live",
+        "soil": "mock",
+        "ndvi": "live",
+        "pesticide": "live",
+        "visitation": "modelled"
+      },
+      "visitation_summary": {
+        "avg_visitations_per_hour": 20.59,
+        "expected_visitations_per_hour": 28.95,
+        "visitation_ratio": 0.711,
+        "decline_rate_12w": 0.238,
+        "pollination_timing_disruption": 0.495,
+        "flowering_success_rate": 0.464,
+        "twelve_week_visits_per_hour": [
+          21.62,
+          24.08,
+          25.98,
+          23.42,
+          19.57,
+          19.03,
+          20.05,
+          19.51,
+          19.48,
+          21.73,
+          22.37,
+          18.78
+        ]
+      },
+      "raw_factor_stress": {
+        "pesticide_exposure": 0.27,
+        "soil_fertility": 0.23,
+        "floral_diversity": 0.04,
+        "climate_variability": 0.34,
+        "nesting_availability": 0.18,
+        "pollination_factor": 0.29
+      },
+      "factor_weights": {
+        "pesticide_exposure": 0.25,
+        "soil_fertility": 0.2,
+        "floral_diversity": 0.15,
+        "climate_variability": 0.22,
+        "nesting_availability": 0.08,
+        "pollination_factor": 0.1
+      },
+      "overall_stress": 0.24,
+      "crop_dependency_basis": "coarse literature-informed estimates, not field-calibrated measurements",
+      "model_limitations": "Factor scores are modelled decision-support estimates from available climate, land-cover, species, pesticide, and mock/surrogate inputs. They should not be read as calibrated farm-level sensor measurements or universally validated causal percentages."
+    }
+  },
+  {
+    "zone_id": "IN_KL_TEST_01",
+    "latitude": 10.8505,
+    "longitude": 76.2711,
+    "analysed_at": "2026-05-16T16:28:49.883834+00:00",
+    "activity_score": 84.92,
+    "activity_label": "Healthy",
+    "contribution_scores": {
+      "pesticide_exposure": 3.5,
+      "soil_fertility": 3.3,
+      "floral_diversity": 1.0,
+      "climate_variability": 3.0,
+      "nesting_availability": 1.8,
+      "pollination_factor": 2.48
+    },
+    "habitat_suitability_score": 88.41,
+    "pollination_stress_index": "Low",
+    "anomalies": [
+      {
+        "factor": "climate_variability",
+        "variable": "drought_index",
+        "severity": "CRITICAL",
+        "observed_value": 0.914,
+        "threshold": 0.8,
+        "description": "Drought index of 0.91 (scale 0\u20131) indicates severe moisture deficit; evapotranspiration is drastically exceeding rainfall over the past 30 days.",
+        "recommended_action": "Activate all available irrigation systems on pollinator habitat areas; report drought conditions to the District Agriculture Officer / KVK for emergency support."
+      },
+      {
+        "factor": "soil_fertility",
+        "variable": "nitrogen_g_per_kg",
+        "severity": "WARNING",
+        "observed_value": 0.95,
+        "threshold": 1.0,
+        "description": "Nitrogen at 0.95 g/kg is below the 1.0 g/kg threshold for supporting nectar-rich crops.",
+        "recommended_action": "Sow red clover or lucerne as under-sown crops in spring; target 25 kg/ha of organic nitrogen input before flowering season."
+      },
+      {
+        "factor": "floral_diversity",
+        "variable": "ndvi",
+        "severity": "WARNING",
+        "observed_value": 0.45,
+        "threshold": 0.45,
+        "description": "NDVI of 0.450 signals sparse vegetation. Floral forage is likely insufficient to sustain productive pollinator colonies.",
+        "recommended_action": "Oversow 2\u20133 m wide wildflower strips along all field boundaries using a regional native wildflower mix (marigold, sunhemp, Tephrosia); target \u22653 species flowering simultaneously."
+      },
+      {
+        "factor": "pollination_factor",
+        "variable": "visitation_ratio",
+        "severity": "WARNING",
+        "observed_value": 0.64,
+        "threshold": 0.65,
+        "description": "Pollinator visitation is reduced to 64% of expected activity (17.7 vs 27.6 visits/hour).",
+        "recommended_action": "Add staggered flowering strips beside the crop edge and pause non-essential sprays during bloom."
+      },
+      {
+        "factor": "pollination_factor",
+        "variable": "pollination_timing_disruption",
+        "severity": "WARNING",
+        "observed_value": 0.487,
+        "threshold": 0.45,
+        "description": "Pollination timing disruption is 0.49; visits may be missing peak flowering windows.",
+        "recommended_action": "Plant early and late flowering margin species to bridge the crop bloom timing gap."
+      },
+      {
+        "factor": "pollination_factor",
+        "variable": "flowering_success_rate",
+        "severity": "WARNING",
+        "observed_value": 0.44,
+        "threshold": 0.55,
+        "description": "Flowering success is 44%, below the expected level for a stable crop cycle.",
+        "recommended_action": "Survey flower-to-fruit set across representative rows and add supplemental forage near low-performing rows."
+      }
+    ],
+    "crop_risk": {
+      "cardamom": "Low",
+      "black pepper": "Low",
+      "coffee": "Low",
+      "coconut": "Low",
+      "rubber": "Low"
+    },
+    "crop_dependency": {
+      "cardamom": 0.95,
+      "black pepper": 0.6,
+      "coffee": 0.55,
+      "coconut": 0.3,
+      "rubber": 0.05
+    },
+    "biodiversity_insight": "Drought is the primary threat here, severely reducing moisture for pollinators and directly impacting harvest yields. This will cut crop production if left unaddressed.",
+    "top_intervention": "Implement drip irrigation immediately during flowering weeks to maintain root zone moisture above 0.6.",
+    "_meta": {
+      "insight_source": "groq",
+      "anomaly_count": 6,
+      "critical_count": 1,
+      "warning_count": 5,
+      "data_sources": {
+        "climate": "open_meteo",
+        "nasa": "nasa_power",
+        "gbif": "gbif",
+        "soil": "openlandmap_stac_mock",
+        "ndvi": "agromonitoring_unavailable",
+        "pesticide": "state_statistics_and_crop_model",
+        "visitation": "modelled_visitation"
+      },
+      "data_quality": {
+        "climate": "live",
+        "nasa": "live",
+        "gbif": "live",
+        "soil": "mock",
+        "ndvi": "live",
+        "pesticide": "live",
+        "visitation": "modelled"
+      },
+      "visitation_summary": {
+        "avg_visitations_per_hour": 17.68,
+        "expected_visitations_per_hour": 27.62,
+        "visitation_ratio": 0.64,
+        "decline_rate_12w": 0.228,
+        "pollination_timing_disruption": 0.487,
+        "flowering_success_rate": 0.44,
+        "twelve_week_visits_per_hour": [
+          21.3,
+          21.31,
+          19.99,
+          19.38,
+          21.89,
+          24.03,
+          21.93,
+          18.4,
+          17.66,
+          18.19,
+          17.4,
+          17.45
+        ]
+      },
+      "raw_factor_stress": {
+        "pesticide_exposure": 0.14,
+        "soil_fertility": 0.15,
+        "floral_diversity": 0.04,
+        "climate_variability": 0.3,
+        "nesting_availability": 0.18,
+        "pollination_factor": 0.31
+      },
+      "factor_weights": {
+        "pesticide_exposure": 0.25,
+        "soil_fertility": 0.22,
+        "floral_diversity": 0.25,
+        "climate_variability": 0.1,
+        "nesting_availability": 0.1,
+        "pollination_factor": 0.08
+      },
+      "overall_stress": 0.15,
+      "crop_dependency_basis": "coarse literature-informed estimates, not field-calibrated measurements",
+      "model_limitations": "Factor scores are modelled decision-support estimates from available climate, land-cover, species, pesticide, and mock/surrogate inputs. They should not be read as calibrated farm-level sensor measurements or universally validated causal percentages."
+    }
+  },
+  {
+    "zone_id": "IN_UP_TEST_01",
+    "latitude": 26.8467,
+    "longitude": 80.9462,
+    "analysed_at": "2026-05-16T16:29:13.233654+00:00",
+    "activity_score": 58.18,
+    "activity_label": "Stressed",
+    "contribution_scores": {
+      "pesticide_exposure": 25.92,
+      "soil_fertility": 3.68,
+      "floral_diversity": 2.38,
+      "climate_variability": 3.36,
+      "nesting_availability": 1.44,
+      "pollination_factor": 5.04
+    },
+    "habitat_suitability_score": 84.21,
+    "pollination_stress_index": "Medium",
+    "anomalies": [
+      {
+        "factor": "pesticide_exposure",
+        "variable": "usage_ppm",
+        "severity": "CRITICAL",
+        "observed_value": 15.0,
+        "threshold": 15.0,
+        "description": "Pesticide concentration of 15.0 ppm is critically high and likely lethal to bees on contact.",
+        "recommended_action": "Immediately suspend all pyrethroid applications; switch to a Bee Hazard Class II-rated alternative and allow a minimum 21-day clearance period before next application."
+      },
+      {
+        "factor": "pesticide_exposure",
+        "variable": "applications_per_month",
+        "severity": "CRITICAL",
+        "observed_value": 7,
+        "threshold": 6,
+        "description": "7 applications per month far exceeds safe practice and creates chronic sub-lethal exposure that impairs bee navigation and queen fertility.",
+        "recommended_action": "Adopt an Integrated Pest Management (IPM) protocol limiting applications to \u22642 per month and introduce biological controls (e.g. Trichogramma wasps, chrysopids) as a buffer."
+      },
+      {
+        "factor": "climate_variability",
+        "variable": "drought_index",
+        "severity": "CRITICAL",
+        "observed_value": 1.0,
+        "threshold": 0.8,
+        "description": "Drought index of 1.00 (scale 0\u20131) indicates severe moisture deficit; evapotranspiration is drastically exceeding rainfall over the past 30 days.",
+        "recommended_action": "Activate all available irrigation systems on pollinator habitat areas; report drought conditions to the District Agriculture Officer / KVK for emergency support."
+      },
+      {
+        "factor": "pollination_factor",
+        "variable": "decline_rate_12w",
+        "severity": "CRITICAL",
+        "observed_value": 0.514,
+        "threshold": 0.45,
+        "description": "Visitation has declined by 51% over the last 12 weeks, matching the problem pattern of gradual pollinator disappearance.",
+        "recommended_action": "Run a field audit for recent pesticide, mowing, irrigation, and bloom-cycle changes; compare against the nearest stable field before applying the next management action."
+      },
+      {
+        "factor": "pollination_factor",
+        "variable": "flowering_success_rate",
+        "severity": "CRITICAL",
+        "observed_value": 0.341,
+        "threshold": 0.35,
+        "description": "Flowering success is only 34%, pointing to uneven pollination outcomes.",
+        "recommended_action": "Prioritise managed pollinator support during the next bloom and protect all open flowers from spray drift."
+      },
+      {
+        "factor": "pollination_factor",
+        "variable": "visitation_ratio",
+        "severity": "WARNING",
+        "observed_value": 0.409,
+        "threshold": 0.65,
+        "description": "Pollinator visitation is reduced to 41% of expected activity (10.7 vs 26.1 visits/hour).",
+        "recommended_action": "Add staggered flowering strips beside the crop edge and pause non-essential sprays during bloom."
+      },
+      {
+        "factor": "pollination_factor",
+        "variable": "pollination_timing_disruption",
+        "severity": "WARNING",
+        "observed_value": 0.674,
+        "threshold": 0.45,
+        "description": "Pollination timing disruption is 0.67; visits may be missing peak flowering windows.",
+        "recommended_action": "Plant early and late flowering margin species to bridge the crop bloom timing gap."
+      }
+    ],
+    "crop_risk": {
+      "mango": "Moderate",
+      "sugarcane": "Low",
+      "wheat": "Low",
+      "potato": "Low",
+      "barley": "Low"
+    },
+    "crop_dependency": {
+      "mango": 0.75,
+      "sugarcane": 0.0,
+      "wheat": 0.1,
+      "potato": 0.1,
+      "barley": 0.05
+    },
+    "biodiversity_insight": "Pesticide exposure is severely harming pollinators, causing a 51% decline in visitation over 12 weeks and reducing flowering success to 34%, which will cut crop yields.",
+    "top_intervention": "Replace pyrethroid sprays with neem oil (1500 ppm, 3 mL/L water) and apply after 6 PM during the next flowering week to protect bees.",
+    "_meta": {
+      "insight_source": "groq",
+      "anomaly_count": 7,
+      "critical_count": 5,
+      "warning_count": 2,
+      "data_sources": {
+        "climate": "open_meteo",
+        "nasa": "nasa_power",
+        "gbif": "gbif",
+        "soil": "openlandmap_stac_mock",
+        "ndvi": "agromonitoring_unavailable",
+        "pesticide": "state_statistics_and_crop_model",
+        "visitation": "modelled_visitation"
+      },
+      "data_quality": {
+        "climate": "live",
+        "nasa": "live",
+        "gbif": "live",
+        "soil": "mock",
+        "ndvi": "live",
+        "pesticide": "live",
+        "visitation": "modelled"
+      },
+      "visitation_summary": {
+        "avg_visitations_per_hour": 10.68,
+        "expected_visitations_per_hour": 26.09,
+        "visitation_ratio": 0.409,
+        "decline_rate_12w": 0.514,
+        "pollination_timing_disruption": 0.674,
+        "flowering_success_rate": 0.341,
+        "twelve_week_visits_per_hour": [
+          13.24,
+          15.16,
+          15.73,
+          12.97,
+          10.75,
+          11.46,
+          11.92,
+          10.52,
+          10.33,
+          12.06,
+          11.76,
+          8.58
+        ]
+      },
+      "raw_factor_stress": {
+        "pesticide_exposure": 0.81,
+        "soil_fertility": 0.16,
+        "floral_diversity": 0.14,
+        "climate_variability": 0.28,
+        "nesting_availability": 0.18,
+        "pollination_factor": 0.63
+      },
+      "factor_weights": {
+        "pesticide_exposure": 0.32,
+        "soil_fertility": 0.23,
+        "floral_diversity": 0.17,
+        "climate_variability": 0.12,
+        "nesting_availability": 0.08,
+        "pollination_factor": 0.08
+      },
+      "overall_stress": 0.42,
+      "crop_dependency_basis": "coarse literature-informed estimates, not field-calibrated measurements",
+      "model_limitations": "Factor scores are modelled decision-support estimates from available climate, land-cover, species, pesticide, and mock/surrogate inputs. They should not be read as calibrated farm-level sensor measurements or universally validated causal percentages."
+    }
+  }
+]

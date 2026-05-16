@@ -1,0 +1,164 @@
+﻿{
+  "zone_id": "IN_KA_01",
+  "latitude": 15.4589,
+  "longitude": 75.0078,
+  "analysed_at": "2026-05-16T09:22:37.692958+00:00",
+  "activity_score": 73.15,
+  "activity_label": "Moderate",
+  "contribution_scores": {
+    "pesticide_exposure": 10.26,
+    "soil_fertility": 6.6,
+    "floral_diversity": 3.57,
+    "climate_variability": 2.2,
+    "nesting_availability": 1.26,
+    "pollination_factor": 2.96
+  },
+  "habitat_suitability_score": 77.14,
+  "pollination_stress_index": "Medium",
+  "anomalies": [
+    {
+      "factor": "soil_fertility",
+      "variable": "organic_carbon_g_per_kg",
+      "severity": "CRITICAL",
+      "observed_value": 0.63,
+      "threshold": 0.8,
+      "description": "Organic carbon of 0.63 g/kg is critically depleted; soil food web and moisture retention have collapsed, making plant establishment for pollinators extremely difficult.",
+      "recommended_action": "Apply 5 t/ha of well-rotted farmyard manure or biochar immediately; plant a mixed legume-grass cover crop and leave undisturbed for 18 months."
+    },
+    {
+      "factor": "climate_variability",
+      "variable": "drought_index",
+      "severity": "CRITICAL",
+      "observed_value": 1.0,
+      "threshold": 0.8,
+      "description": "Drought index of 1.00 (scale 0û1) indicates severe moisture deficit; evapotranspiration is drastically exceeding rainfall over the past 30 days.",
+      "recommended_action": "Activate all available irrigation systems on pollinator habitat areas; report drought conditions to the District Agriculture Officer / KVK for emergency support."
+    },
+    {
+      "factor": "floral_diversity",
+      "variable": "species_count",
+      "severity": "CRITICAL",
+      "observed_value": 2,
+      "threshold": 2,
+      "description": "Only 2 pollinator species observed within 10 km û catastrophic biodiversity collapse. Local extinctions may be underway.",
+      "recommended_action": "Contact State Agriculture Department / Krishi Vigyan Kendra (KVK) to establish a habitat corridor plan; immediately cease mowing all field margins and ditch banks for 12 months to allow recovery."
+    },
+    {
+      "factor": "pollination_factor",
+      "variable": "visitation_ratio",
+      "severity": "WARNING",
+      "observed_value": 0.599,
+      "threshold": 0.65,
+      "description": "Pollinator visitation is reduced to 60% of expected activity (15.1 vs 25.2 visits/hour).",
+      "recommended_action": "Add staggered flowering strips beside the crop edge and pause non-essential sprays during bloom."
+    },
+    {
+      "factor": "pollination_factor",
+      "variable": "decline_rate_12w",
+      "severity": "WARNING",
+      "observed_value": 0.271,
+      "threshold": 0.25,
+      "description": "Visitation has fallen by 27% over 12 weeks, suggesting an early decline signal.",
+      "recommended_action": "Repeat fixed-transect pollinator counts for the next 3 weeks and preserve current flowering patches."
+    },
+    {
+      "factor": "pollination_factor",
+      "variable": "pollination_timing_disruption",
+      "severity": "WARNING",
+      "observed_value": 0.517,
+      "threshold": 0.45,
+      "description": "Pollination timing disruption is 0.52; visits may be missing peak flowering windows.",
+      "recommended_action": "Plant early and late flowering margin species to bridge the crop bloom timing gap."
+    },
+    {
+      "factor": "pollination_factor",
+      "variable": "flowering_success_rate",
+      "severity": "WARNING",
+      "observed_value": 0.423,
+      "threshold": 0.55,
+      "description": "Flowering success is 42%, below the expected level for a stable crop cycle.",
+      "recommended_action": "Survey flower-to-fruit set across representative rows and add supplemental forage near low-performing rows."
+    }
+  ],
+  "crop_risk": {
+    "sunflower": "Moderate",
+    "cotton": "Low",
+    "red gram": "Low",
+    "groundnut": "Low",
+    "sorghum": "Low"
+  },
+  "crop_dependency": {
+    "sunflower": 0.9,
+    "cotton": 0.15,
+    "red gram": 0.4,
+    "groundnut": 0.3,
+    "sorghum": 0.05
+  },
+  "biodiversity_insight": "Soil fertility loss is the primary threat, causing plant establishment to fail and reducing pollinator food sources, which will cut crop yields by 20-30% this season.",
+  "top_intervention": "Add 500 kg/ha of organic compost now to restore soil health and support pollinator-friendly plants.",
+  "_meta": {
+    "insight_source": "groq",
+    "anomaly_count": 7,
+    "critical_count": 3,
+    "warning_count": 4,
+    "data_sources": {
+      "climate": "open_meteo",
+      "nasa": "nasa_power",
+      "gbif": "gbif",
+      "soil": "openlandmap_stac_mock",
+      "ndvi": "agromonitoring_unavailable",
+      "pesticide": "state_statistics_and_crop_model",
+      "visitation": "modelled_visitation"
+    },
+    "data_quality": {
+      "climate": "live",
+      "nasa": "live",
+      "gbif": "live",
+      "soil": "mock",
+      "ndvi": "live",
+      "pesticide": "live",
+      "visitation": "modelled"
+    },
+    "visitation_summary": {
+      "avg_visitations_per_hour": 15.09,
+      "expected_visitations_per_hour": 25.2,
+      "visitation_ratio": 0.599,
+      "decline_rate_12w": 0.271,
+      "pollination_timing_disruption": 0.517,
+      "flowering_success_rate": 0.423,
+      "twelve_week_visits_per_hour": [
+        20.86,
+        18.21,
+        17.74,
+        17.61,
+        15.89,
+        15.51,
+        18.12,
+        19.59,
+        17.15,
+        14.39,
+        14.34,
+        14.5
+      ]
+    },
+    "raw_factor_stress": {
+      "pesticide_exposure": 0.27,
+      "soil_fertility": 0.33,
+      "floral_diversity": 0.21,
+      "climate_variability": 0.22,
+      "nesting_availability": 0.18,
+      "pollination_factor": 0.37
+    },
+    "factor_weights": {
+      "pesticide_exposure": 0.38,
+      "soil_fertility": 0.2,
+      "floral_diversity": 0.17,
+      "climate_variability": 0.1,
+      "nesting_availability": 0.07,
+      "pollination_factor": 0.08
+    },
+    "overall_stress": 0.27,
+    "crop_dependency_basis": "coarse literature-informed estimates, not field-calibrated measurements",
+    "model_limitations": "Factor scores are modelled decision-support estimates from available climate, land-cover, species, pesticide, and mock/surrogate inputs. They should not be read as calibrated farm-level sensor measurements or universally validated causal percentages."
+  }
+}
