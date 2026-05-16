@@ -15,7 +15,105 @@ document.addEventListener('DOMContentLoaded', () => {
   loadZones();
   checkHealth();
   document.getElementById('custom-zone-form').addEventListener('submit', handleCustomSubmit);
+  setupLocationSearch();
 });
+
+const STATE_MAP = {
+  'Andaman and Nicobar Islands': 'IN_AN',
+  'Andhra Pradesh': 'IN_AP',
+  'Arunachal Pradesh': 'IN_AR',
+  'Assam': 'IN_AS',
+  'Bihar': 'IN_BR',
+  'Chandigarh': 'IN_CH',
+  'Chhattisgarh': 'IN_CT',
+  'Dadra and Nagar Haveli and Daman and Diu': 'IN_DN',
+  'Delhi': 'IN_DL',
+  'Goa': 'IN_GA',
+  'Gujarat': 'IN_GJ',
+  'Haryana': 'IN_HR',
+  'Himachal Pradesh': 'IN_HP',
+  'Jammu and Kashmir': 'IN_JK',
+  'Jharkhand': 'IN_JH',
+  'Karnataka': 'IN_KA',
+  'Kerala': 'IN_KL',
+  'Ladakh': 'IN_LA',
+  'Lakshadweep': 'IN_LD',
+  'Madhya Pradesh': 'IN_MP',
+  'Maharashtra': 'IN_MH',
+  'Manipur': 'IN_MN',
+  'Meghalaya': 'IN_ML',
+  'Mizoram': 'IN_MZ',
+  'Nagaland': 'IN_NL',
+  'Odisha': 'IN_OR',
+  'Puducherry': 'IN_PY',
+  'Punjab': 'IN_PB',
+  'Rajasthan': 'IN_RJ',
+  'Sikkim': 'IN_SK',
+  'Tamil Nadu': 'IN_TN',
+  'Telangana': 'IN_TG',
+  'Tripura': 'IN_TR',
+  'Uttar Pradesh': 'IN_UP',
+  'Uttarakhand': 'IN_UT',
+  'West Bengal': 'IN_WB'
+};
+
+function setupLocationSearch() {
+  const input = document.getElementById('location-search');
+  const results = document.getElementById('search-results');
+  let debounceTimer;
+
+  input.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    const query = input.value.trim();
+    if (query.length < 3) {
+      results.classList.add('hidden');
+      return;
+    }
+    debounceTimer = setTimeout(() => fetchSuggestions(query), 400);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!input.contains(e.target) && !results.contains(e.target)) {
+      results.classList.add('hidden');
+    }
+  });
+}
+
+async function fetchSuggestions(query) {
+  const results = document.getElementById('search-results');
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=in&limit=5&addressdetails=1`);
+    if (!res.ok) throw new Error('Search failed');
+    const data = await res.json();
+    if (data.length === 0) {
+      results.innerHTML = '<p class="empty">No results found.</p>';
+    } else {
+      results.innerHTML = data.map(item => `
+        <div class="search-item" data-lat="${item.lat}" data-lon="${item.lon}" data-name="${item.display_name}" data-state="${item.address.state || ''}">
+          <strong>${escapeHtml(item.display_name.split(',')[0])}</strong>
+          <small>${escapeHtml(item.display_name.split(',').slice(1).join(','))}</small>
+        </div>
+      `).join('');
+      
+      results.querySelectorAll('.search-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const lat = parseFloat(el.dataset.lat);
+          const lon = parseFloat(el.dataset.lon);
+          const name = el.dataset.name;
+          const state = el.dataset.state;
+          const stateCode = STATE_MAP[state] || 'IN';
+          const zoneId = `${stateCode}_SEARCH_${Date.now()}`;
+          runAnalysis(zoneId, lat, lon, name);
+          results.classList.add('hidden');
+          document.getElementById('location-search').value = '';
+        });
+      });
+    }
+    results.classList.remove('hidden');
+  } catch (err) {
+    console.error(err);
+  }
+}
 
 async function checkHealth() {
   const status = document.getElementById('api-status');
@@ -94,6 +192,11 @@ function setLoading(isLoading) {
   const button = document.getElementById('analyse-btn');
   button.disabled = isLoading;
   button.textContent = isLoading ? 'Analysing...' : 'Analyse Zone';
+  if (isLoading) {
+    document.body.classList.add('is-loading');
+  } else {
+    document.body.classList.remove('is-loading');
+  }
 }
 
 function markActiveZone(zoneId) {
@@ -103,16 +206,27 @@ function markActiveZone(zoneId) {
 }
 
 function renderDashboard(data, displayName) {
-  document.getElementById('zone-title').textContent = `${data.zone_id} - ${displayName || 'Custom zone'}`;
+  // Re-trigger animation
+  document.body.classList.remove('animate-on-load');
+  void document.body.offsetWidth; // trigger reflow
+  document.body.classList.add('animate-on-load');
+  let titleStr = `${data.zone_id} - ${displayName || 'Custom zone'}`;
+  if (data.zone_id.includes('_SEARCH_')) {
+    titleStr = displayName || 'Search Result';
+  }
+  document.getElementById('zone-title').textContent = titleStr;
   document.getElementById('zone-meta').textContent =
     `Lat ${Number(data.latitude).toFixed(4)} | Lon ${Number(data.longitude).toFixed(4)} | ${formatDate(data.analysed_at)}`;
-  document.getElementById('activity-score').textContent = Number(data.activity_score).toFixed(1);
+  animateValue(document.getElementById('activity-score'), 0, Number(data.activity_score), 1000);
   document.getElementById('activity-label').textContent = data.activity_label;
-  document.getElementById('stress-index').textContent = data._meta?.overall_stress == null
-    ? data.pollination_stress_index
-    : `${Math.round(Number(data._meta.overall_stress) * 100)}%`;
+  const stressVal = data._meta?.overall_stress == null ? 0 : Math.round(Number(data._meta.overall_stress) * 100);
+  if (data._meta?.overall_stress == null) {
+    document.getElementById('stress-index').textContent = data.pollination_stress_index;
+  } else {
+    animateValue(document.getElementById('stress-index'), 0, stressVal, 1000, '%');
+  }
   document.getElementById('stress-label').textContent = data.pollination_stress_index || 'index';
-  document.getElementById('habitat-score').textContent = Number(data.habitat_suitability_score).toFixed(1);
+  animateValue(document.getElementById('habitat-score'), 0, Number(data.habitat_suitability_score), 1000);
 
   renderFactors(data._meta?.raw_factor_stress || {});
   renderCropTable(data.crop_risk || {}, data.crop_dependency || {});
@@ -131,13 +245,9 @@ function renderFactors(factors) {
     const card = document.createElement('article');
     card.className = 'factor-card';
     card.innerHTML = `
-      <div class="factor-head">
-        <h3>${meta.label}</h3>
-        <div class="weight">${meta.weight}% model weight</div>
-      </div>
-      <span>Estimated stress level</span>
-      <div class="meter"><div class="meter-fill" style="width:${percent}%;background:${meta.color}"></div></div>
+      <h3>${meta.label}</h3>
       <div class="factor-score">${escapeHtml(stressBand(stress))}</div>
+      <div class="meter"><div class="meter-fill" style="width:${percent}%;background:${meta.color}"></div></div>
       <div class="factor-range">${stressRange(percent)}</div>
     `;
     grid.appendChild(card);
@@ -292,13 +402,13 @@ function trendSparkline(values) {
   const span = Math.max(max - min, 0.01);
   const points = values.map((value, index) => {
     const x = (index / (values.length - 1)) * 220;
-    const y = 58 - ((value - min) / span) * 46;
+    const y = 36 - ((value - min) / span) * 32;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(' ');
   return `
-    <svg class="trend-spark" viewBox="0 0 220 64" role="img" aria-label="12-week visitation trend">
+    <svg class="trend-spark" viewBox="0 0 220 40" role="img" aria-label="12-week visitation trend">
       <polyline points="${points}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
-      <polyline points="${points} 220,64 0,64" fill="currentColor" opacity="0.08"></polyline>
+      <polyline points="${points} 220,40 0,40" fill="currentColor" opacity="0.08"></polyline>
     </svg>
   `;
 }
@@ -309,8 +419,8 @@ function pollinationBar(item, index) {
   const height = Math.max(8, Math.min(100, (value / max) * 100));
   return `
     <div class="bar-metric" style="--bar-offset:${100 - height};--delay:${index * 90}ms">
-      <svg viewBox="0 0 24 118" aria-hidden="true">
-        <line x1="12" y1="108" x2="12" y2="${108 - height}" pathLength="100"></line>
+      <svg viewBox="0 0 24 50" aria-hidden="true">
+        <line x1="12" y1="46" x2="12" y2="${46 - height}" pathLength="100"></line>
       </svg>
       <strong>${escapeHtml(item.display || '--')}</strong>
       <span>${escapeHtml(item.label)}</span>
@@ -329,4 +439,22 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
+}
+
+function animateValue(obj, start, end, duration, suffix = '') {
+  let startTimestamp = null;
+  const isFloat = end % 1 !== 0;
+  const step = (timestamp) => {
+    if (!startTimestamp) startTimestamp = timestamp;
+    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+    const easeOut = 1 - Math.pow(1 - progress, 3);
+    const current = start + easeOut * (end - start);
+    obj.innerHTML = (isFloat ? current.toFixed(1) : Math.round(current)) + suffix;
+    if (progress < 1) {
+      window.requestAnimationFrame(step);
+    } else {
+      obj.innerHTML = (isFloat ? end.toFixed(1) : end) + suffix;
+    }
+  };
+  window.requestAnimationFrame(step);
 }
