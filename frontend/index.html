@@ -4,9 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PolyNexus Pollinator Dashboard</title>
-  <link rel="stylesheet" href="/static/style.css?v=readable-2" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v=decluttered-1" />
 </head>
-<body>
+<body class="animate-on-load">
   <aside class="sidebar">
     <div class="brand">
       <div class="brand-mark">PX</div>
@@ -15,6 +18,14 @@
         <p>Pollinator ecosystem intelligence</p>
       </div>
     </div>
+
+    <section class="side-section">
+      <h2>Location Search</h2>
+      <div class="search-box">
+        <input id="location-search" type="text" placeholder="Search state or city..." autocomplete="off" />
+        <div id="search-results" class="search-results hidden"></div>
+      </div>
+    </section>
 
     <section class="side-section">
       <h2>Preset Zones</h2>
@@ -39,7 +50,7 @@
 
   <main class="shell">
     <header class="summary">
-      <div>
+      <div class="zone-info">
         <p class="eyebrow">Selected Zone</p>
         <h2 id="zone-title">No zone selected</h2>
         <p id="zone-meta" class="muted">Choose a preset or enter coordinates.</p>
@@ -63,70 +74,81 @@
       </div>
     </header>
 
-    <section class="story-grid">
-      <article class="panel insight-panel">
-        <div class="panel-head">
-          <h3>AI Insights</h3>
-          <span id="insight-source" class="tag">--</span>
-        </div>
-        <div id="ai-content" class="scroll-area readable">
-          <p class="empty">Insights will appear after analysis.</p>
-        </div>
-      </article>
+    <div class="dashboard-grid">
+      <!-- Primary Column: Insights & Risks -->
+      <div class="main-col">
+        <article class="panel insight-panel">
+          <div class="panel-head">
+            <h3>Intelligence Insights</h3>
+            <span id="insight-source" class="tag">--</span>
+          </div>
+          <div id="ai-content" class="scroll-area readable">
+            <p class="empty">Insights will appear after analysis.</p>
+          </div>
+        </article>
 
-      <article class="panel pollination-card">
-        <div class="panel-head">
-          <h3>Pollination Factor</h3>
-          <span class="tag">modelled visitation</span>
-        </div>
-        <div id="pollination-detail" class="scroll-area detail-grid">
-          <p class="empty">Pollination visitation data will appear after analysis.</p>
-        </div>
-      </article>
-    </section>
+        <article class="panel crop-panel">
+          <div class="panel-head">
+            <h3>Crop Risk Assessment</h3>
+            <span id="crop-count" class="tag">0 crops</span>
+          </div>
+          <div class="scroll-area table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Crop</th>
+                  <th>Dependency</th>
+                  <th>Risk</th>
+                </tr>
+              </thead>
+              <tbody id="crop-tbody">
+                <tr><td colspan="3" class="empty">Run analysis to view crop risk.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
 
-    <section class="factor-grid" id="factor-grid"></section>
+      <!-- Secondary Column: Trends & Alerts -->
+      <div class="side-col">
+        <article class="panel pollination-card">
+          <div class="panel-head">
+            <h3>Pollination Trends</h3>
+            <span class="tag">modelled</span>
+          </div>
+          <div id="pollination-detail" class="scroll-area detail-grid">
+            <p class="empty">Trend data will appear after analysis.</p>
+          </div>
+        </article>
 
-    <section class="method-note" id="method-note">
-      <strong>Model note</strong>
-      <span>Scores are estimated decision-support bands from mixed live, modelled, and surrogate inputs; they are not calibrated farm-level sensor measurements.</span>
-    </section>
+        <article class="panel anomaly-panel">
+          <div class="panel-head">
+            <h3>Anomaly Feed</h3>
+            <span id="anomaly-count" class="tag">0 alerts</span>
+          </div>
+          <div id="anomaly-feed" class="scroll-area alert-list">
+            <p class="empty">No alerts yet.</p>
+          </div>
+        </article>
+      </div>
+    </div>
 
-    <section class="panel-grid">
-      <article class="panel crop-panel">
-        <div class="panel-head">
-          <h3>Crop Risk Assessment</h3>
-          <span id="crop-count" class="tag">0 crops</span>
-        </div>
-        <div class="scroll-area table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Crop</th>
-                <th>Dependency estimate</th>
-                <th>Risk</th>
-              </tr>
-            </thead>
-            <tbody id="crop-tbody">
-              <tr><td colspan="3" class="empty">Run analysis to view crop risk.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </article>
+    <section class="factor-grid-compact" id="factor-grid"></section>
 
-      <article class="panel anomaly-panel">
-        <div class="panel-head">
-          <h3>Anomaly Alert Feed</h3>
-          <span id="anomaly-count" class="tag">0 alerts</span>
-        </div>
-        <div id="anomaly-feed" class="scroll-area alert-list">
-          <p class="empty">No alerts yet.</p>
-        </div>
-      </article>
-    </section>
-
+    <footer class="footer">
+      <section class="method-note" id="method-note">
+        <strong>Model note</strong>
+        <span>Scores are estimated decision-support bands from mixed live, modelled, and surrogate inputs; they are not calibrated farm-level sensor measurements.</span>
+      </section>
+    </footer>
   </main>
 
   <script src="/static/app.js"></script>
+  
+  <div class="loading-overlay" aria-hidden="true">
+    <div class="spinner"></div>
+    <div class="loading-text">Analysing ecosystem data...</div>
+    <div class="loading-subtext">Fetching live satellite & climate signals</div>
+  </div>
 </body>
 </html>
