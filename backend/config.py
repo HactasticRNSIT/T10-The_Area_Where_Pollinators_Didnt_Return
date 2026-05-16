@@ -1,3 +1,5 @@
+import os
+from typing import Any
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -21,6 +23,11 @@ API_ENDPOINTS = {
 
     # Groq LLM inference
     "groq": "https://api.groq.com/openai/v1/chat/completions",
+
+    # Agromonitoring (Sentinel-2 / Landsat-8 NDVI via OpenWeather)
+    "agromonitoring_polygons":     "http://api.agromonitoring.com/agro/1.0/polygons",
+    "agromonitoring_image_search": "http://api.agromonitoring.com/agro/1.0/image/search",
+    "agromonitoring_ndvi_history": "http://api.agromonitoring.com/agro/1.0/ndvi/history",
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -126,102 +133,47 @@ DEFAULT_CROP_POLLINATION_DEPENDENCY = {
 }
 
 ZONE_CROP_REGISTRY: dict[str, dict[str, float]] = {
-    # Karnataka — Deccan Plateau oilseeds & pulses
-    "IN_KA": {
-        "sunflower":  0.90,  # primary bee-dependent oilseed of Karnataka
-        "cotton":     0.15,  # Bt cotton, some insect pollination
-        "red gram":   0.40,
-        "groundnut":  0.30,
-        "sorghum":    0.05,
-    },
-    # Rajasthan — arid drylands mustard & cumin belt
-    "IN_RJ": {
-        "mustard":    0.80,  # #1 crop; huge migratory bee demand Feb–Mar
-        "cumin":      0.65,
-        "coriander":  0.60,
-        "wheat":      0.10,
-        "sesame":     0.50,
-    },
-    # Uttar Pradesh — Malihabad mango cluster
-    "IN_UP": {
-        "mango":      0.75,  # bee-critical for fruit set
-        "guava":      0.55,
-        "sugarcane":  0.02,  # wind-pollinated
-        "wheat":      0.10,
-        "lychee":     0.80,
-    },
-    # Gujarat — cotton & groundnut semi-arid zone
-    "IN_GJ": {
-        "cotton":     0.15,  # Bt cotton; limited but present bee use
-        "groundnut":  0.30,  # modest bee benefit; largely self-pollinating
-        "castor":     0.35,
-        "wheat":      0.10,
-        "sesame":     0.45,  # variable insect-pollination benefit; avoid high-end default
-    },
-    # West Bengal — rice & jute floodplain
-    "IN_WB": {
-        "rice":       0.03,  # primarily wind/self-pollinated
-        "jute":       0.05,
-        "mustard":    0.80,  # rabi season crop; bee-dependent
-        "vegetables": 0.45,
-        "watermelon": 0.90,
-    },
-    # Kerala — spice coast tropical evergreen
-    "IN_KL": {
-        "cardamom":    0.95,  # almost entirely bee-pollinated
-        "black pepper": 0.60,
-        "coffee":      0.55,
-        "coconut":     0.30,
-        "rubber":      0.05,
-    },
-    # Himachal Pradesh — temperate apple belt
-    "IN_HP": {
-        "apple":      0.95,  # managed honeybee hives placed in orchards
-        "cherry":     0.90,
-        "plum":       0.70,
-        "pear":       0.75,
-        "potato":     0.10,
-    },
-    # Maharashtra — Vidarbha orange & soybean belt
-    "IN_MH": {
-        "orange":     0.75,
-        "cotton":     0.15,
-        "soybean":    0.25,
-        "sorghum":    0.05,
-        "pomegranate": 0.60,
-    },
-    # Madhya Pradesh — semi-arid sesame & soybean
-    "IN_MP": {
-        "sesame":     0.50,
-        "soybean":    0.25,
-        "wheat":      0.10,
-        "chickpea":   0.20,
-        "lentils":    0.20,
-    },
-    # Bihar — alluvial lychee & mango belt
-    "IN_BR": {
-        "lychee":     0.80,
-        "mango":      0.75,
-        "wheat":      0.10,
-        "maize":      0.05,
-        "banana":     0.10,
-    },
-    # USA Central Valley (California almonds, stone fruit)
-    "FARM_G": {
-        "almonds":    1.00,
-        "stone fruit": 0.85,
-        "tomatoes":   0.55,
-        "grapes":     0.10,
-        "canola":     0.70,
-    },
-    # USA Midwest Corn Belt
-    "FARM_H": {
-        "maize":      0.05,
-        "soybean":    0.25,
-        "sunflower":  0.65,
-        "canola":     0.70,
-        "wheat":      0.10,
-    },
+    # --- Major States (Existing + New) ---
+    "IN_KA": {"sunflower": 0.90, "cotton": 0.15, "red gram": 0.40, "groundnut": 0.30, "coffee": 0.55},
+    "IN_RJ": {"mustard": 0.80, "cumin": 0.65, "coriander": 0.60, "wheat": 0.10, "bajra": 0.35},
+    "IN_UP": {"mango": 0.75, "sugarcane": 0.02, "wheat": 0.10, "potato": 0.10, "barley": 0.05},
+    "IN_GJ": {"cotton": 0.15, "groundnut": 0.30, "castor": 0.35, "wheat": 0.10, "bajra": 0.35},
+    "IN_WB": {"rice": 0.03, "jute": 0.05, "mustard": 0.80, "tea": 0.70, "potato": 0.10},
+    "IN_KL": {"cardamom": 0.95, "black pepper": 0.60, "coffee": 0.55, "coconut": 0.30, "rubber": 0.05},
+    "IN_HP": {"apple": 0.95, "cherry": 0.90, "plum": 0.70, "wheat": 0.10, "potato": 0.10},
+    "IN_MH": {"orange": 0.75, "cotton": 0.15, "soybean": 0.25, "pomegranate": 0.60, "tur": 0.30},
+    "IN_MP": {"soybean": 0.25, "wheat": 0.10, "gram": 0.20, "garlic": 0.40, "coriander": 0.60},
+    "IN_BR": {"lychee": 0.80, "mango": 0.75, "maize": 0.05, "wheat": 0.10, "sugarcane": 0.02},
+    "IN_TN": {"coconut": 0.30, "rice": 0.03, "cotton": 0.15, "groundnut": 0.30, "bananas": 0.10},
+    "IN_AP": {"chillies": 0.60, "tobacco": 0.05, "cotton": 0.15, "rice": 0.03, "groundnut": 0.30},
+    "IN_TG": {"turmeric": 0.50, "cotton": 0.15, "maize": 0.05, "chillies": 0.60, "rice": 0.03},
+    "IN_PB": {"wheat": 0.10, "rice": 0.03, "cotton": 0.15, "mustard": 0.80, "sugarcane": 0.02},
+    "IN_HR": {"mustard": 0.80, "wheat": 0.10, "rice": 0.03, "cotton": 0.15, "sugarcane": 0.02},
+    "IN_AS": {"tea": 0.70, "rice": 0.03, "jute": 0.05, "citrus": 0.50},
+    "IN_OR": {"rice": 0.03, "jute": 0.05, "groundnut": 0.30, "pulses": 0.40},
+    "IN_CT": {"rice": 0.03, "maize": 0.05, "pulses": 0.40, "oilseeds": 0.40},
+    "IN_JH": {"rice": 0.03, "maize": 0.05, "pulses": 0.40, "ragi": 0.20},
+    "IN_UT": {"wheat": 0.10, "rice": 0.03, "millets": 0.20, "fruits": 0.60},
+    "IN_GA": {"cashew": 0.70, "coconut": 0.30, "rice": 0.03},
+    "IN_SK": {"cardamom": 0.95, "ginger": 0.50, "orange": 0.75, "maize": 0.05},
+    "IN_JK": {"apple": 0.95, "saffron": 0.90, "walnut": 0.85, "almond": 1.00},
+    "IN_LA": {"apricot": 0.85, "barley": 0.05, "vegetables": 0.45},
+    "IN_TR": {"rubber": 0.05, "tea": 0.70, "pineapple": 0.80, "rice": 0.03},
+    "IN_ML": {"pineapple": 0.80, "orange": 0.75, "ginger": 0.50, "turmeric": 0.50},
+    "IN_MN": {"pineapple": 0.80, "orange": 0.75, "rice": 0.03, "maize": 0.05},
+    "IN_MZ": {"ginger": 0.50, "turmeric": 0.50, "pineapple": 0.80, "rice": 0.03},
+    "IN_NL": {"maize": 0.05, "rice": 0.03, "pulses": 0.40, "citrus": 0.50},
+    "IN_AR": {"orange": 0.75, "pineapple": 0.80, "kiwi": 0.90, "maize": 0.05},
+    "IN_DL": {"wheat": 0.10, "vegetables": 0.45, "mustard": 0.80},
+    "IN_CH": {"wheat": 0.10, "rice": 0.03},
+    "IN_PY": {"rice": 0.03, "coconut": 0.30, "groundnut": 0.30},
+    "IN_AN": {"coconut": 0.30, "areca nut": 0.40, "rice": 0.03},
+    "IN_LD": {"coconut": 0.30, "tapioca": 0.10},
+    "IN_DN": {"rice": 0.03, "jowar": 0.05, "pulses": 0.40},
+
+    # --- International / Generic ---
+    "FARM_G": {"almonds": 1.00, "stone fruit": 0.85, "tomatoes": 0.55, "grapes": 0.10, "canola": 0.70},
+    "FARM_H": {"maize": 0.05, "soybean": 0.25, "sunflower": 0.65, "canola": 0.70, "wheat": 0.10},
 }
 
 
@@ -312,3 +264,141 @@ HABITAT_WEIGHTS = {
 # Request timeouts (seconds)
 # ──────────────────────────────────────────────────────────────────────────────
 REQUEST_TIMEOUT = 15
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Agromonitoring credentials + geometry
+# ──────────────────────────────────────────────────────────────────────────────
+AGROMONITORING_API_KEY: str = os.environ.get("AGROMONITORING_API_KEY", "")
+# Half-side of the square polygon created around a lat/lon point.
+# 0.0045 deg ~ 0.5 km gives a ~1 km2 field polygon (minimum for meaningful NDVI).
+AGROMONITORING_POLYGON_HALF_DEG: float = 0.0045
+# Look-back window for image search (days).
+AGROMONITORING_IMAGE_WINDOW_DAYS: int = 30
+# Maximum cloud coverage accepted when selecting a satellite image.
+AGROMONITORING_MAX_CLOUD_PCT: float = 30.0
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Fix 6: Per-zone YAML weight overrides
+# Loaded once at import time from zone_weights.yaml (sibling of config.py).
+# Falls back to FACTOR_WEIGHTS if the file is absent or unparseable.
+# ──────────────────────────────────────────────────────────────────────────────
+
+import os as _os
+import pathlib as _pathlib
+
+_ZONE_WEIGHTS_PATH = _pathlib.Path(__file__).parent / "zone_weights.yaml"
+_ZONE_WEIGHT_OVERRIDES: dict[str, dict[str, float]] = {}
+
+
+def _load_zone_weights() -> None:
+    """Parse zone_weights.yaml into _ZONE_WEIGHT_OVERRIDES (longest-prefix lookup)."""
+    global _ZONE_WEIGHT_OVERRIDES
+    if not _ZONE_WEIGHTS_PATH.exists():
+        return
+    try:
+        import yaml  # PyYAML optional dependency
+        with open(_ZONE_WEIGHTS_PATH) as fh:
+            data = yaml.safe_load(fh) or {}
+        validated: dict[str, dict[str, float]] = {}
+        expected_keys = set(FACTOR_WEIGHTS.keys())
+        for zone_prefix, weights in data.items():
+            if not isinstance(weights, dict):
+                continue
+            if set(weights.keys()) != expected_keys:
+                continue
+            total = sum(weights.values())
+            if abs(total - 1.0) > 0.01:
+                continue  # skip malformed entries silently
+            validated[zone_prefix] = {k: float(v) for k, v in weights.items()}
+        _ZONE_WEIGHT_OVERRIDES = validated
+    except Exception:
+        _ZONE_WEIGHT_OVERRIDES = {}
+
+
+_load_zone_weights()
+
+
+def get_factor_weights_for_zone(zone_id: str) -> dict[str, float]:
+    """
+    Return the factor weights for a given zone_id.
+    Longest-prefix match against zone_weights.yaml; falls back to global
+    FACTOR_WEIGHTS if no override exists.
+
+    Example:
+        zone_id = "IN_KA_01" → tries "IN_KA_01", "IN_KA", "IN" → first match wins.
+    """
+    if not zone_id:
+        return FACTOR_WEIGHTS
+    parts = zone_id.split("_")
+    for length in range(len(parts), 0, -1):
+        prefix = "_".join(parts[:length])
+        if prefix in _ZONE_WEIGHT_OVERRIDES:
+            return _ZONE_WEIGHT_OVERRIDES[prefix]
+    return FACTOR_WEIGHTS
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Fix 8: Agro-climatic zone threshold overrides
+# Allows anomaly detection to use geography-aware thresholds instead of
+# a single global table, eliminating false positives in tropical/arid zones.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Base thresholds remain ANOMALY_THRESHOLDS (imported from above).
+# Zone overrides are shallow-merged on top; unspecified keys use the global value.
+
+_AGRO_ZONE_THRESHOLD_OVERRIDES: dict[str, dict[str, Any]] = {
+    # Indian tropical / sub-tropical zones: raise temp variance thresholds
+    # (diurnal swings of 10–15 °C are climatically normal here)
+    "IN": {
+        "temp_variance_warning":  12.0,   # was 8.0
+        "temp_variance_critical": 20.0,   # was 14.0
+        # Monsoon zones routinely exceed 30 mm/30 days; lower rainfall threshold
+        "rainfall_deficit_warning":  10.0,  # was 30.0
+        "rainfall_deficit_critical": 25.0,  # was 60.0
+        # Drought index baseline is higher in arid Indian zones
+        "drought_index_warning":  0.55,    # was 0.40
+        "drought_index_critical": 0.80,    # was 0.70
+    },
+    # Rajasthan / Gujarat: hyper-arid; further relax rainfall deficit thresholds
+    "IN_RJ": {
+        "temp_variance_warning":     14.0,
+        "temp_variance_critical":    22.0,
+        "rainfall_deficit_warning":   5.0,
+        "rainfall_deficit_critical": 15.0,
+        "drought_index_warning":      0.65,
+        "drought_index_critical":     0.88,
+    },
+    "IN_GJ": {
+        "rainfall_deficit_warning":   8.0,
+        "rainfall_deficit_critical": 18.0,
+        "drought_index_warning":      0.60,
+        "drought_index_critical":     0.85,
+    },
+    # Kerala spice coast: high humidity; NDVI thresholds raised (dense canopy)
+    "IN_KL": {
+        "ndvi_low_warning":  0.45,    # was 0.35 — tropical canopy baseline is higher
+        "ndvi_low_critical": 0.30,    # was 0.20
+    },
+    # Himachal Pradesh: temperate; keep standard thresholds (European defaults fine)
+}
+
+
+def get_anomaly_thresholds_for_zone(zone_id: str) -> dict[str, Any]:
+    """
+    Return anomaly detection thresholds for a zone, merging global defaults
+    with any agro-climatic zone overrides (longest-prefix match).
+
+    Example:
+        zone_id = "IN_RJ_01" → merges "IN" overrides, then "IN_RJ" overrides on top.
+    """
+    merged = dict(ANOMALY_THRESHOLDS)  # start from global defaults
+    if not zone_id:
+        return merged
+
+    parts = zone_id.split("_")
+    # Apply overrides from shortest prefix to longest so specific zones win
+    for length in range(1, len(parts) + 1):
+        prefix = "_".join(parts[:length])
+        if prefix in _AGRO_ZONE_THRESHOLD_OVERRIDES:
+            merged.update(_AGRO_ZONE_THRESHOLD_OVERRIDES[prefix])
+
+    return merged

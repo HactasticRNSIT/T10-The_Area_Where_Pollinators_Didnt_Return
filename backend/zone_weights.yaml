@@ -1,0 +1,42 @@
+# zone_weights.yaml
+# =================
+# Per-zone factor weight overrides (Fix 6).
+# Keys must match FACTOR_WEIGHTS in config.py. Values must sum to 1.0.
+# Zones not listed fall back to the global defaults in config.py.
+# Reload the server after editing (no deploy needed).
+
+# Karnataka Sunflower Belt — high pesticide concern, good soil base
+IN_KA:
+  pesticide_exposure:   0.38
+  soil_fertility:       0.20
+  floral_diversity:     0.17
+  climate_variability:  0.10
+  nesting_availability: 0.07
+  pollination_factor:   0.08
+
+# Rajasthan Mustard Belt — drought-dominated, climate is the key driver
+IN_RJ:
+  pesticide_exposure:   0.25
+  soil_fertility:       0.20
+  floral_diversity:     0.15
+  climate_variability:  0.22
+  nesting_availability: 0.08
+  pollination_factor:   0.10
+
+# Himachal Pradesh Apple — managed hives; pollination timing is critical
+IN_HP:
+  pesticide_exposure:   0.28
+  soil_fertility:       0.18
+  floral_diversity:     0.18
+  climate_variability:  0.10
+  nesting_availability: 0.08
+  pollination_factor:   0.18
+
+# Kerala Spice Coast — biodiversity-rich; floral diversity dominates
+IN_KL:
+  pesticide_exposure:   0.25
+  soil_fertility:       0.22
+  floral_diversity:     0.25
+  climate_variability:  0.10
+  nesting_availability: 0.10
+  pollination_factor:   0.08
