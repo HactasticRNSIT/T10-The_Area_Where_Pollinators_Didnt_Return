@@ -67,80 +67,85 @@ def _round_dependency(value: float) -> float:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Factor 1 – Pesticide Exposure  (Fix 5: sigmoid on ppm concentration)
+# Factor 1 – Pesticide Exposure
 # ──────────────────────────────────────────────────────────────────────────────
 
 def score_pesticide_exposure(pesticide: dict[str, Any]) -> float:
     """
-    Fix 5: ppm concentration now uses a sigmoid centred at the safe threshold
-    (5 ppm) with steepness=0.18 so stress rises smoothly from near-zero at
-    0 ppm to ~0.87 at 20 ppm, rather than a hard linear ramp that was either
-    all-or-nothing.  Frequency and recency remain linear.
+    Pesticide stress (0–1).
+    ppm concentration uses a sigmoid centred at 10 ppm; frequency and recency
+    are linear.  Pesticide data is OWID/FAO-derived and always present, so
+    None fallbacks are defensive only.
     """
-    ppm    = pesticide.get("usage_ppm", 5.0)
-    freq   = pesticide.get("applications_per_month", 2)
-    days   = pesticide.get("days_since_last_application", 30)
-    t_mult = pesticide.get("toxicity_multiplier", 1.0)
+    ppm    = pesticide.get("usage_ppm") or 5.0
+    freq   = pesticide.get("applications_per_month") or 2
+    days   = pesticide.get("days_since_last_application") or 30
+    t_mult = pesticide.get("toxicity_multiplier") or 1.0
 
-    # Fix 5: sigmoid ppm stress — midpoint at 10 ppm (midpoint between warning
-    # threshold 5 and critical threshold 15), steepness tuned so:
-    #   0 ppm → ~0.01, 5 ppm → ~0.18, 10 ppm → 0.50, 15 ppm → ~0.82, 20 ppm → ~0.95
-    usage_stress = _sigmoid_stress(ppm, midpoint=10.0, steepness=0.22)
-
-    # Frequency stress: linear 0 at 0/month, 1.0 at 8+/month
-    freq_stress = _linear_stress(float(freq), 0.0, 8.0)
-
-    # Recency stress: 1.0 if applied today, 0.0 after 30 days
-    recency_stress = _clamp(1.0 - days / 30.0)
+    usage_stress   = _sigmoid_stress(float(ppm),  midpoint=10.0, steepness=0.22)
+    freq_stress    = _linear_stress(float(freq),   0.0, 8.0)
+    recency_stress = _clamp(1.0 - float(days) / 30.0)
 
     raw = (usage_stress * 0.45 + freq_stress * 0.30 + recency_stress * 0.25)
-    return _clamp(raw * t_mult)
+    return _clamp(raw * float(t_mult))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Factor 2 – Soil Fertility Rate  (Fix 5: sigmoid on pH)
+# Factor 2 – Soil Fertility Rate
 # ──────────────────────────────────────────────────────────────────────────────
+
+# Neutral stress used when a sub-signal is genuinely unavailable (None).
+# 0.5 means "unknown" — contributes neither good nor bad to the weighted score.
+_NEUTRAL_STRESS = 0.5
+
 
 def score_soil_fertility(
     soil: dict[str, Any],
     nasa: dict[str, Any],
 ) -> float:
     """
-    Fix 5: pH stress now uses a two-sided sigmoid (symmetric around optimum
-    6.5) rather than a pure bell curve that was hard to calibrate.  The new
-    formula gives:
-      pH 6.5 → 0.0 stress (optimum)
-      pH 5.5 → ~0.35 stress (warning zone)
-      pH 5.0 → ~0.73 stress (critical zone)
-      pH 7.5 → ~0.35 stress (high-side warning)
-      pH 8.0 → ~0.73 stress (high-side critical)
+    Soil fertility stress (0–1).
+    pH stress uses a two-sided sigmoid; other sub-signals are linear.
+    When a value is None (source unavailable), that sub-signal contributes
+    a neutral 0.5 stress so it does not fabricate a healthy or stressed signal.
     """
-    ph         = soil.get("ph", 6.5)
-    soc        = soil.get("organic_carbon_g_per_kg", 1.8)
-    nitrogen   = soil.get("nitrogen_g_per_kg", 1.2)
-    compaction = soil.get("compaction_index", 0.3)
-    moisture   = nasa.get("root_zone_wetness", 0.45)
+    ph         = soil.get("ph")
+    soc        = soil.get("organic_carbon_g_per_kg")
+    nitrogen   = soil.get("nitrogen_g_per_kg")
+    compaction = soil.get("compaction_index")
+    moisture   = nasa.get("root_zone_wetness")
 
-    # Fix 5: two-sided sigmoid pH stress
-    # Low-side: sigmoid centred at 5.25 (midpoint between critical 5.0 and warning 5.5)
-    # High-side: sigmoid centred at 7.75 (midpoint between warning 7.5 and critical 8.0)
-    if ph < 6.5:
-        ph_stress = _sigmoid_stress(6.5 - ph, midpoint=1.0, steepness=1.5)
+    # pH — two-sided sigmoid around optimum 6.5
+    if ph is None:
+        ph_stress = _NEUTRAL_STRESS
+    elif ph < 6.5:
+        ph_stress = _clamp(_sigmoid_stress(6.5 - ph, midpoint=1.0, steepness=1.5))
     else:
-        ph_stress = _sigmoid_stress(ph - 6.5, midpoint=1.0, steepness=1.5)
-    ph_stress = _clamp(ph_stress)
+        ph_stress = _clamp(_sigmoid_stress(ph - 6.5, midpoint=1.0, steepness=1.5))
 
-    # Organic carbon: sigmoid — stress rises sharply below 1.5 g/kg
-    carbon_stress = _sigmoid_stress(1.5 - soc, midpoint=0.5, steepness=2.5)
-    carbon_stress = _clamp(carbon_stress)
+    # Organic carbon — stress rises sharply below 1.5 g/kg
+    if soc is None:
+        carbon_stress = _NEUTRAL_STRESS
+    else:
+        carbon_stress = _clamp(_sigmoid_stress(1.5 - soc, midpoint=0.5, steepness=2.5))
 
-    # Nitrogen: below 1.0 increases stress
-    nitrogen_stress = _linear_stress(1.0 - nitrogen, 0.0, 1.0)
+    # Nitrogen
+    if nitrogen is None:
+        nitrogen_stress = _NEUTRAL_STRESS
+    else:
+        nitrogen_stress = _linear_stress(1.0 - nitrogen, 0.0, 1.0)
 
-    # Moisture: bell curve around optimal 0.50
-    moisture_stress = _bell_curve_stress(moisture, optimum=0.50, tolerance=0.30)
+    # Soil moisture — bell curve around optimal 0.50
+    if moisture is None:
+        moisture_stress = _NEUTRAL_STRESS
+    else:
+        moisture_stress = _bell_curve_stress(float(moisture), optimum=0.50, tolerance=0.30)
 
-    compaction_stress = _clamp(compaction)
+    # Compaction
+    if compaction is None:
+        compaction_stress = _NEUTRAL_STRESS
+    else:
+        compaction_stress = _clamp(float(compaction))
 
     raw = (
         ph_stress         * 0.25 +
@@ -160,15 +165,20 @@ def score_floral_diversity(
     ndvi: dict[str, Any],
     gbif: dict[str, Any],
 ) -> float:
-    ndvi_val      = ndvi.get("ndvi", 0.50)
-    flower_cov    = ndvi.get("flowering_coverage", 0.35)
-    patch_div     = ndvi.get("patch_diversity", 0.45)
-    species_count = gbif.get("species_count", 5)
+    """
+    Floral diversity stress (0–1).
+    When NDVI or GBIF values are None (source unavailable), sub-signals
+    contribute a neutral 0.5 rather than fabricating a healthy landscape.
+    """
+    ndvi_val      = ndvi.get("ndvi")
+    flower_cov    = ndvi.get("flowering_coverage")
+    patch_div     = ndvi.get("patch_diversity")
+    species_count = gbif.get("species_count")  # 0 is valid real data
 
-    ndvi_stress    = _linear_stress(0.35 - ndvi_val, 0.0, 0.35)
-    flower_stress  = _linear_stress(0.25 - flower_cov, 0.0, 0.25)
-    patch_stress   = _linear_stress(0.5 - patch_div, 0.0, 0.5)
-    species_stress = _clamp(1.0 - species_count / 12.0)
+    ndvi_stress    = _linear_stress(0.35 - ndvi_val, 0.0, 0.35) if ndvi_val is not None else _NEUTRAL_STRESS
+    flower_stress  = _linear_stress(0.25 - flower_cov, 0.0, 0.25) if flower_cov is not None else _NEUTRAL_STRESS
+    patch_stress   = _linear_stress(0.5 - patch_div, 0.0, 0.5) if patch_div is not None else _NEUTRAL_STRESS
+    species_stress = _clamp(1.0 - species_count / 12.0) if species_count is not None else _NEUTRAL_STRESS
 
     raw = (
         ndvi_stress    * 0.35 +
@@ -180,17 +190,22 @@ def score_floral_diversity(
 
 
 def score_pollination_factor(visitation: dict[str, Any]) -> float:
-    visit_ratio         = visitation.get("visitation_ratio", 0.75)
-    decline_rate        = visitation.get("decline_rate_12w", 0.0)
-    timing_disruption   = visitation.get("pollination_timing_disruption", 0.25)
-    flowering_success   = visitation.get("flowering_success_rate", 0.70)
-    recovery_volatility = visitation.get("recovery_volatility", 0.25)
+    """
+    Pollination factor stress (0–1).
+    When visitation values are None (e.g. source is 'visitation_unavailable'),
+    each sub-signal uses a neutral 0.5 so no fictional stress is added.
+    """
+    visit_ratio         = visitation.get("visitation_ratio")
+    decline_rate        = visitation.get("decline_rate_12w")
+    timing_disruption   = visitation.get("pollination_timing_disruption")
+    flowering_success   = visitation.get("flowering_success_rate")
+    recovery_volatility = visitation.get("recovery_volatility")
 
-    visit_stress     = _linear_stress(0.75 - visit_ratio, 0.0, 0.75)
-    decline_stress   = _clamp(decline_rate / 0.55)
-    timing_stress    = _clamp(timing_disruption)
-    flowering_stress = _linear_stress(0.65 - flowering_success, 0.0, 0.65)
-    volatility_stress = _clamp(recovery_volatility)
+    visit_stress      = _linear_stress(0.75 - visit_ratio, 0.0, 0.75)    if visit_ratio is not None         else _NEUTRAL_STRESS
+    decline_stress    = _clamp(decline_rate / 0.55)                        if decline_rate is not None        else _NEUTRAL_STRESS
+    timing_stress     = _clamp(timing_disruption)                          if timing_disruption is not None   else _NEUTRAL_STRESS
+    flowering_stress  = _linear_stress(0.65 - flowering_success, 0.0, 0.65) if flowering_success is not None else _NEUTRAL_STRESS
+    volatility_stress = _clamp(recovery_volatility)                        if recovery_volatility is not None else _NEUTRAL_STRESS
 
     raw = (
         visit_stress      * 0.35 +
@@ -210,26 +225,37 @@ def score_climate_variability(
     climate: dict[str, Any],
     lat: float = 0.0,
 ) -> float:
-    temp_std     = climate.get("temp_std_c", 4.0)
-    total_precip = climate.get("total_precipitation_mm", 48.0)
-    precip_std   = climate.get("precip_std_mm", 3.0)
-    drought_idx  = climate.get("drought_index", 0.35)
+    """
+    Climate variability stress (0–1).
+    When climate data is None (open_meteo_unavailable), sub-signals use
+    a neutral 0.5 rather than fabricating a stress score.
+    """
+    temp_std     = climate.get("temp_std_c")
+    total_precip = climate.get("total_precipitation_mm")
+    precip_std   = climate.get("precip_std_mm")
+    drought_idx  = climate.get("drought_index")
 
-    if abs(lat) < 25.0:
-        temp_stress = _linear_stress(temp_std, 8.0, 20.0)
+    if temp_std is None:
+        temp_stress = _NEUTRAL_STRESS
+    elif abs(lat) < 25.0:
+        temp_stress = _linear_stress(float(temp_std), 8.0, 20.0)
     else:
-        temp_stress = _linear_stress(temp_std, 4.0, 14.0)
+        temp_stress = _linear_stress(float(temp_std), 4.0, 14.0)
 
-    precip_stress     = _linear_stress(30.0 - total_precip, 0.0, 60.0)
-    precip_var_stress = _linear_stress(precip_std, 2.0, 8.0)
+    precip_stress     = _linear_stress(30.0 - float(total_precip), 0.0, 60.0) if total_precip is not None else _NEUTRAL_STRESS
+    precip_var_stress = _linear_stress(float(precip_std), 2.0, 8.0)           if precip_std is not None    else _NEUTRAL_STRESS
 
-    drought_stress = 0.4 if drought_idx is None else _clamp(drought_idx)
+    # Sigmoid drought stress — None means data unavailable, use neutral
+    if drought_idx is None:
+        drought_stress = _NEUTRAL_STRESS
+    else:
+        drought_stress = _clamp(_sigmoid_stress(float(drought_idx), midpoint=0.55, steepness=5.0))
 
     raw = (
         temp_stress       * 0.30 +
         precip_stress     * 0.30 +
-        precip_var_stress * 0.20 +
-        drought_stress    * 0.20
+        drought_stress    * 0.25 +
+        precip_var_stress * 0.15
     )
     return _clamp(raw)
 
@@ -239,19 +265,26 @@ def score_climate_variability(
 # ──────────────────────────────────────────────────────────────────────────────
 
 def score_nesting_availability(ndvi: dict[str, Any]) -> float:
-    bare_soil   = ndvi.get("bare_soil_fraction", 0.25)
-    hedgerow    = ndvi.get("hedgerow_density", 0.30)
-    dead_wood   = ndvi.get("dead_wood_index", 0.20)
-    disturbance = ndvi.get("disturbance_score", 0.35)
+    """
+    Nesting availability stress (0–1).
+    When NDVI values are None (source unavailable), sub-signals use
+    a neutral 0.5 rather than fabricating a healthy nesting landscape.
+    """
+    bare_soil   = ndvi.get("bare_soil_fraction")
+    hedgerow    = ndvi.get("hedgerow_density")
+    dead_wood   = ndvi.get("dead_wood_index")
+    disturbance = ndvi.get("disturbance_score")
 
-    if bare_soil > 0.30:
+    if bare_soil is None:
+        bare_stress = _NEUTRAL_STRESS
+    elif bare_soil > 0.30:
         bare_stress = _linear_stress(bare_soil - 0.30, 0.0, 0.45)
     else:
         bare_stress = _linear_stress(0.05 - bare_soil, 0.0, 0.05)
 
-    hedge_stress = _linear_stress(0.30 - hedgerow, 0.0, 0.30)
-    dw_stress    = _linear_stress(0.20 - dead_wood, 0.0, 0.20)
-    dist_stress  = _clamp(disturbance)
+    hedge_stress = _linear_stress(0.30 - float(hedgerow), 0.0, 0.30) if hedgerow is not None else _NEUTRAL_STRESS
+    dw_stress    = _linear_stress(0.20 - float(dead_wood), 0.0, 0.20) if dead_wood is not None else _NEUTRAL_STRESS
+    dist_stress  = _clamp(float(disturbance)) if disturbance is not None else _NEUTRAL_STRESS
 
     raw = (
         bare_stress  * 0.30 +
@@ -283,12 +316,74 @@ def compute_habitat_suitability(
 # Crop risk
 # ──────────────────────────────────────────────────────────────────────────────
 
-def compute_crop_risks(overall_stress: float, zone_id: str = "") -> dict[str, str]:
+def compute_crop_risks(overall_stress: float, zone_id: str = "", geo_profile: dict = None) -> dict[str, str]:
     risks = {}
-    for crop, dep in get_crop_dependency_for_zone(zone_id).items():
+    for crop, dep in get_crop_dependency_for_zone(zone_id, geo_profile).items():
         impact = _clamp(dep * overall_stress)
         risks[crop] = _label_from_bands(impact, CROP_RISK_LABELS)
     return risks
+
+
+def _anomaly_stress_floor(anomalies: list[dict[str, Any]]) -> float:
+    critical_count = sum(1 for item in anomalies if item.get("severity") == "CRITICAL")
+    warning_count = sum(1 for item in anomalies if item.get("severity") == "WARNING")
+    critical_factors = {
+        item.get("factor")
+        for item in anomalies
+        if item.get("severity") == "CRITICAL"
+    }
+
+    if critical_count >= 3 or len(critical_factors) >= 3:
+        floor = 0.52
+    elif critical_count == 2:
+        floor = 0.45
+    elif critical_count == 1:
+        floor = 0.34
+    else:
+        floor = 0.0
+
+    floor += min(0.10, warning_count * 0.02)
+    return _clamp(floor)
+
+
+def apply_anomaly_pressure(
+    scores: dict[str, Any],
+    anomalies: list[dict[str, Any]],
+    zone_id: str = "",
+    geo_profile: dict | None = None,
+) -> dict[str, Any]:
+    """
+    Guardrail the composite score so multiple CRITICAL findings cannot be
+    hidden by a low weighted average. Factor scores remain unchanged; only the
+    displayed overall stress, activity label, stress label, and crop risks are
+    adjusted when anomaly severity warrants it.
+    """
+    floor = _anomaly_stress_floor(anomalies)
+    current_stress = float(scores.get("overall_stress", 0.0) or 0.0)
+    adjusted_stress = _clamp(max(current_stress, floor))
+    if adjusted_stress == current_stress:
+        scores["anomaly_pressure_adjustment"] = {
+            "applied": False,
+            "stress_floor": _r2(floor),
+            "original_overall_stress": _r2(current_stress),
+        }
+        return scores
+
+    scores = dict(scores)
+    scores["overall_stress"] = _r2(adjusted_stress)
+    scores["activity_score"] = _r2((1.0 - adjusted_stress) * 100)
+    scores["activity_label"] = _label_from_bands(scores["activity_score"], ACTIVITY_SCORE_LABELS)
+    scores["pollination_stress_index"] = _label_from_bands(adjusted_stress, STRESS_INDEX_THRESHOLDS)
+    scores["crop_risk"] = compute_crop_risks(adjusted_stress, zone_id=zone_id, geo_profile=geo_profile)
+    scores["anomaly_pressure_adjustment"] = {
+        "applied": True,
+        "stress_floor": _r2(floor),
+        "original_overall_stress": _r2(current_stress),
+        "adjusted_overall_stress": _r2(adjusted_stress),
+        "critical_count": sum(1 for item in anomalies if item.get("severity") == "CRITICAL"),
+        "warning_count": sum(1 for item in anomalies if item.get("severity") == "WARNING"),
+    }
+    return scores
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -304,6 +399,7 @@ def compute_all_scores(raw: dict[str, Any], zone_id: str = "") -> dict[str, Any]
     pesticide  = raw["pesticide"]
     visitation = raw.get("visitation", {})
     lat        = raw.get("_meta", {}).get("lat", 0.0)
+    geo_profile = raw.get("_meta", {}).get("geo_profile", None)
 
     f_pest        = score_pesticide_exposure(pesticide)
     f_soil        = score_soil_fertility(soil, nasa)
@@ -322,7 +418,7 @@ def compute_all_scores(raw: dict[str, Any], zone_id: str = "") -> dict[str, Any]
     }
 
     # Fix 6: use per-zone weights from zone_weights.yaml if available
-    effective_weights = get_factor_weights_for_zone(zone_id)
+    effective_weights = get_factor_weights_for_zone(zone_id, geo_profile)
 
     overall_stress = _clamp(round(sum(
         factor_scores[k] * effective_weights[k] for k in effective_weights
@@ -341,9 +437,9 @@ def compute_all_scores(raw: dict[str, Any], zone_id: str = "") -> dict[str, Any]
 
     crop_dependency = {
         crop: _round_dependency(dep)
-        for crop, dep in get_crop_dependency_for_zone(zone_id).items()
+        for crop, dep in get_crop_dependency_for_zone(zone_id, geo_profile).items()
     }
-    crop_risk = compute_crop_risks(overall_stress, zone_id=zone_id)
+    crop_risk = compute_crop_risks(overall_stress, zone_id=zone_id, geo_profile=geo_profile)
 
     return {
         "factor_scores":             factor_scores,

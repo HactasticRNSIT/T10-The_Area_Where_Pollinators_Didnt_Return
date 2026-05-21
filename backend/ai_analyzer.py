@@ -1,8 +1,8 @@
 """
 ai_analyzer.py
 ==============
-Fix 3: Restructured Groq prompt for dramatically better AI quality +
-       robust output validation with field-level checks and retry logic.
+AI insights reoriented to actively INCREASE pollination rates and crop
+fertility — not just identify threats. Every output key drives uplift.
 """
 
 import json
@@ -23,8 +23,8 @@ from config import (
 log = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Fix 3: Restructured system prompt — clearer role, stricter output contract,
-#        few-shot example guides response quality and length.
+# System prompt — every output key is oriented toward INCREASING pollination
+# and crop fertility, not merely reducing harm.
 # ──────────────────────────────────────────────────────────────────────────────
 
 _SYSTEM_PROMPT = """\
@@ -32,36 +32,58 @@ You are Dr. Ananya Krishnan, a senior agricultural ecologist at the National \
 Centre for Integrated Pest Management with 20 years of field experience across \
 Indian and tropical farming zones.
 
+Your PRIMARY GOAL is to help farmers INCREASE pollination rates and crop \
+fertility — not just describe problems. Every insight must point toward \
+concrete improvement in yield and flower fertilisation.
+
 Your task is to read structured JSON data about a farm zone's pollinator \
-ecosystem and return a JSON object with EXACTLY these two keys:
+ecosystem and return a JSON object with EXACTLY these THREE keys:
 
   "biodiversity_insight"
     • 2–3 plain-English sentences a farmer with no scientific background can act on.
-    • Name the single most damaging factor first, explain what it is doing to the \
-pollinators, and state the direct consequence for the harvest.
-    • Avoid jargon. No abbreviations.
-    • Target length: 60–90 words.
+    • Identify the biggest obstacle to pollination, explain how removing it will \
+INCREASE pollinator visits and fruit/seed set, and state the expected fertility gain.
+    • Frame positively: what the farmer GAINS by acting, not just what is lost.
+    • Avoid jargon. No abbreviations. Target length: 60–90 words.
 
   "top_intervention"
-    • One highly specific, immediately actionable recommendation.
+    • One highly specific, immediately actionable step to BOOST pollination or \
+soil fertility THIS season.
     • Must include: WHAT to do, WHEN to do it (timing/season), HOW MUCH \
 (quantities/concentrations where relevant), and WHICH species or products.
-    • Max 60 words. Imperative mood. Start with a verb.
+    • Must end with an estimated benefit, e.g. "expected to increase fruit-set \
+by 15–25%".
+    • Max 70 words. Imperative mood. Start with a verb.
+
+  "pollination_boost_actions"
+    • A JSON array of exactly 3 short strings (max 20 words each).
+    • Each string is one distinct, positive action to further increase \
+pollination or soil fertility beyond the top intervention.
+    • Actions must be season-aware and geography-appropriate.
+    • Do NOT repeat the top_intervention.
 
 CONSTRAINTS:
 - Output ONLY the JSON object. No markdown fences, no preamble, no trailing text.
-- Both values must be non-empty strings.
+- All values must be non-empty. pollination_boost_actions must be an array of 3 strings.
 - Do not hallucinate species or products not appropriate for the zone's geography.
+- Every output must help the farmer INCREASE yield through better pollination.
 
 EXAMPLE OUTPUT (for reference structure only — do not copy):
 {
-  "biodiversity_insight": "Neonicotinoid pesticides at 9 ppm are the primary \
-threat here, impairing bee navigation so severely that fewer than half the \
-expected pollinators are visiting flowers. This will cut mango fruit-set by an \
-estimated 30–40% this season if left unaddressed.",
-  "top_intervention": "Immediately replace neonicotinoid sprays with neem oil \
-(Azadirachtin 1500 ppm, 3 mL/L water) and apply only after 6 PM during the \
-next two flowering weeks to protect foraging bees."
+  "biodiversity_insight": "Reducing neonicotinoid sprays will allow native bees \
+to return to your fields within 2–3 weeks, increasing flower visits by an \
+estimated 40% and directly raising mango fruit-set this season.",
+  "top_intervention": "Switch all pesticide applications to neem oil \
+(Azadirachtin 1500 ppm, 3 mL/L water), applied after 6 PM only during the \
+next two flowering weeks — expected to increase fruit-set by 20–35%.",
+  "pollination_boost_actions": [
+    "Plant 5-metre strips of phacelia or mustard on field borders to attract \
+native solitary bees within 3 weeks.",
+    "Install 10 simple bee hotels (bamboo bundles) per hectare on south-facing \
+fences before next flowering flush.",
+    "Apply compost tea (1:10 ratio) to soil around flowering plants to boost \
+root-zone fertility and floral nectar quality."
+  ]
 }
 """
 
@@ -75,9 +97,9 @@ def _build_user_prompt(
     raw: dict[str, Any],
 ) -> str:
     """
-    Fix 3: More structured prompt layout — critical anomalies first, then
-    supporting metrics grouped by theme. Reduces hallucination by giving the
-    model the most decision-relevant facts at the top of its context window.
+    Structured prompt — critical anomalies first, then supporting metrics
+    grouped by theme. Includes an explicit instruction to orient all outputs
+    toward INCREASING pollination rates and crop fertility.
     """
     top_anomalies = anomalies[:5]
     critical = [a for a in top_anomalies if a["severity"] == "CRITICAL"]
@@ -86,6 +108,11 @@ def _build_user_prompt(
     payload = {
         "zone_id":     zone_id,
         "location":    {"lat": round(lat, 4), "lon": round(lon, 4)},
+        "analysis_goal": (
+            "Identify the highest-impact actions to INCREASE pollination rates "
+            "and crop fertility in this zone. Prioritise positive gains, not just "
+            "threat reduction."
+        ),
         "health_summary": {
             "activity_score":   scores["activity_score"],
             "activity_label":   scores["activity_label"],
@@ -99,6 +126,10 @@ def _build_user_prompt(
                 "observed":    a["observed_value"],
                 "threshold":   a["threshold"],
                 "description": a["description"][:140],
+                "uplift_opportunity": (
+                    "Fixing this factor is expected to increase pollinator "
+                    "visits and improve fruit/seed set."
+                ),
             }
             for a in critical
         ],
@@ -126,28 +157,43 @@ def _build_user_prompt(
             "timing_disruption":  raw.get("visitation", {}).get("pollination_timing_disruption"),
             "flowering_success":  raw.get("visitation", {}).get("flowering_success_rate"),
         },
+        "source_caveats": {
+            "visitation_source": raw.get("visitation", {}).get("source"),
+            "visitation_is_modelled": raw.get("visitation", {}).get("source") == "modelled_visitation",
+            "instruction": (
+                "If visitation_is_modelled is true, describe visitation findings as modelled risk "
+                "signals rather than direct field observations."
+            ),
+        },
     }
     return json.dumps(payload, indent=2)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Fix 3: Robust output validation
+# Robust output validation — includes the new pollination_boost_actions key
 # ──────────────────────────────────────────────────────────────────────────────
 
 _MIN_INSIGHT_WORDS = 20
 _MIN_INTERVENTION_WORDS = 8
 
+_BOOST_FALLBACKS = [
+    "Plant flowering cover crops (e.g. sunflower or sesame) along field borders to attract foraging bees.",
+    "Reduce pesticide frequency to at most once per fortnight and switch to evening-only applications.",
+    "Add organic compost (2 t/ha) before the next sowing to improve soil fertility and nectar quality.",
+]
+
 
 def _validate_ai_response(data: dict) -> dict:
     """
-    Fix 3: Validate the parsed LLM response.
-    Raises ValueError with a descriptive message if any check fails so the
-    caller can retry or fall back cleanly.
+    Validate the parsed LLM response. Raises ValueError if required keys are
+    missing or values fail quality checks. Normalises pollination_boost_actions
+    into a guaranteed list of 3 non-empty strings.
     """
     if not isinstance(data, dict):
         raise ValueError(f"Expected dict, got {type(data).__name__}")
 
-    missing = [k for k in ("biodiversity_insight", "top_intervention") if k not in data]
+    required = ("biodiversity_insight", "top_intervention")
+    missing = [k for k in required if k not in data]
     if missing:
         raise ValueError(f"Missing required keys: {missing}")
 
@@ -170,20 +216,31 @@ def _validate_ai_response(data: dict) -> dict:
             f"min {_MIN_INTERVENTION_WORDS})"
         )
 
+    # Normalise pollination_boost_actions — must be a list of 3 non-empty strings.
+    raw_boost = data.get("pollination_boost_actions", [])
+    if isinstance(raw_boost, list):
+        boost = [str(item).strip() for item in raw_boost if str(item).strip()][:3]
+    else:
+        boost = []
+    # Pad with fallbacks if the model returned fewer than 3
+    while len(boost) < 3:
+        boost.append(_BOOST_FALLBACKS[len(boost)])
+
     return {
-        "biodiversity_insight": insight.strip(),
-        "top_intervention":     intervention.strip(),
+        "biodiversity_insight":     insight.strip(),
+        "top_intervention":         intervention.strip(),
+        "pollination_boost_actions": boost,
     }
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Groq API caller — Fix 3: retry once on validation failure
+# Groq API caller — retries once with temperature=0 on validation failure
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _call_groq(user_content: str, attempt: int = 1) -> dict[str, str]:
     """
     Call Groq and return a validated response dict.
-    Fix 3: retries once with temperature=0 if validation fails on attempt 1.
+    Retries once with temperature=0 if validation fails on attempt 1.
     """
     api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key:
@@ -233,6 +290,10 @@ def _rule_based_fallback(
     scores: dict[str, Any],
     anomalies: list[dict[str, Any]],
 ) -> dict[str, str]:
+    """
+    Rule-based fallback — frames outputs around increasing pollination and
+    crop fertility, mirroring the AI system prompt's positive-action stance.
+    """
     label  = scores["activity_label"]
     stress = scores["pollination_stress_index"]
     top_a  = anomalies[0] if anomalies else None
@@ -240,39 +301,51 @@ def _rule_based_fallback(
 
     if top_a:
         fst_factor = top_a["factor"].replace("_", " ")
-        fst_sev    = top_a["severity"].lower()
         insight = (
-            f"This farm zone is currently rated '{label}' with a {stress.lower()} "
-            f"pollination stress level. The most serious issue is a {fst_sev} problem "
-            f"with {fst_factor}: {top_a['description'][:150]}. "
+            f"Correcting the {fst_factor} issue in this zone "
+            f"(currently rated '{label}' with {stress.lower()} stress) "
+            f"is the fastest route to increasing pollinator visits: "
+            f"{top_a['description'][:150]}. "
         )
         if second:
             sec_factor = second["factor"].replace("_", " ")
             insight += (
-                f"A secondary concern is {sec_factor}, which is also reducing the ability "
-                f"of bees and other pollinators to thrive in this area."
+                f"Addressing {sec_factor} next will further boost bee activity "
+                "and improve fruit-set across your crop area."
             )
         else:
             insight += (
-                "Addressing this issue promptly will be critical to maintaining "
-                "sufficient pollinator activity for a productive harvest."
+                "Acting promptly on this factor will help restore healthy "
+                "pollinator populations and increase yield this season."
             )
     else:
         insight = (
-            f"This farm zone currently shows a '{label}' pollinator status with "
-            f"{stress.lower()} stress. No critical anomalies were detected, "
-            "but ongoing monitoring is recommended to sustain ecosystem health."
+            f"This farm zone shows a '{label}' pollinator status with "
+            f"{stress.lower()} stress — a strong foundation for further "
+            "increasing pollination rates. Focus on floral diversity and "
+            "soil fertility improvements to push activity scores higher."
         )
 
     top_intervention = (
         top_a["recommended_action"] if top_a else
-        "Maintain current biodiversity-friendly practices; continue monitoring "
-        "soil pH and organic matter quarterly to sustain healthy pollinator habitat."
+        "Plant flowering cover crops along 10% of field borders this season "
+        "to attract native bees and increase pollination visits by an "
+        "estimated 15–20%; monitor soil pH and organic matter quarterly."
     )
 
+    # Build three additional boost actions from remaining anomalies or defaults
+    boost_actions: list[str] = []
+    for anomaly in anomalies[1:4]:
+        action = anomaly.get("recommended_action", "")
+        if action and action != top_intervention:
+            boost_actions.append(action)
+    while len(boost_actions) < 3:
+        boost_actions.append(_BOOST_FALLBACKS[len(boost_actions)])
+
     return {
-        "biodiversity_insight": insight,
-        "top_intervention":     top_intervention,
+        "biodiversity_insight":      insight,
+        "top_intervention":          top_intervention,
+        "pollination_boost_actions": boost_actions[:3],
     }
 
 
@@ -289,8 +362,11 @@ def get_ai_insights(
     raw: dict[str, Any],
 ) -> dict[str, str]:
     """
-    Attempt Groq LLM insights (with one retry on validation failure — Fix 3),
+    Attempt Groq LLM insights (with one retry on validation failure),
     then fall back to rule-based template.
+    All returned dicts include biodiversity_insight, top_intervention,
+    and pollination_boost_actions — every field oriented toward increasing
+    pollination rates and crop fertility.
     """
     user_content = _build_user_prompt(zone_id, lat, lon, scores, anomalies, raw)
 
