@@ -5,17 +5,24 @@ import json
 import logging
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*args, **kwargs) -> None:
+        return None
 
-# Load environment variables (e.g., GROQ_API_KEY from .env)
-load_dotenv()
+# Load environment variables (e.g., GROQ_API_KEY from .env) when python-dotenv is installed.
+load_dotenv(Path(__file__).parent / ".env")
 
 from ai_analyzer import get_ai_insights
 from anomaly_detector import detect_anomalies, has_ai_trigger_anomaly
 from data_fetcher import fetch_all
-from scorer import compute_all_scores
+from decision_engine import build_decision_brief
+from scorer import apply_anomaly_pressure, compute_all_scores
+from geo_classifier import resolve_agro_zone
 
 # Suppress all library-level logging so stdout stays clean JSON
 logging.basicConfig(
@@ -24,6 +31,36 @@ logging.basicConfig(
     stream=sys.stderr,
 )
 log = logging.getLogger(__name__)
+
+
+def _quality_from_source(source: str) -> str:
+    source = (source or "unknown").lower()
+    if (
+        "mock" in source
+        or "unavailable" in source
+        or source in {"inat_no_data", "unknown"}
+    ):
+        return "fallback"
+    if "modelled" in source or source.startswith("owid_fao_"):
+        return "modelled"
+    return "live"
+
+
+def _build_data_caveats(raw: dict[str, Any]) -> list[str]:
+    caveats: list[str] = []
+    visitation = raw.get("visitation", {})
+    if visitation.get("source") == "modelled_visitation":
+        caveats.append(
+            "Pollination visitation metrics are synthetic model outputs derived from habitat, "
+            "pesticide, climate, and biodiversity proxies because no live visitation observations "
+            "were available for this zone. Treat visitation anomalies as modelled risk signals, "
+            "not field observations."
+        )
+    for signal in ("climate", "nasa", "gbif", "soil", "ndvi", "pesticide"):
+        warning = raw.get(signal, {}).get("_data_warning")
+        if warning:
+            caveats.append(f"{signal}: {warning}")
+    return caveats
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -60,34 +97,51 @@ def analyse_zone(
 
     # Inject zone metadata so scorer sub-functions can read lat + zone_id
     # without changing every function signature in the hot path.
-    raw["_meta"] = {"lat": lat, "lon": lon, "zone_id": zone_id}
+    raw["_meta"] = {"lat": lat, "lon": lon, "zone_id": zone_id, "geo_profile": resolve_agro_zone(lat, lon, raw.get("climate", {}))}
 
     # ── 2. Scoring ──────────────────────────────────────────────────────────
     scores = compute_all_scores(raw, zone_id=zone_id)
 
     # ── 3. Anomaly Detection ─────────────────────────────────────────────────
     anomalies = detect_anomalies(raw, zone_id=zone_id)
+    scores = apply_anomaly_pressure(
+        scores,
+        anomalies,
+        zone_id=zone_id,
+        geo_profile=raw.get("_meta", {}).get("geo_profile"),
+    )
 
     # ── 4. AI Insights (conditional) ─────────────────────────────────────────
     if has_ai_trigger_anomaly(anomalies):
         ai_result = get_ai_insights(zone_id, lat, lon, scores, anomalies, raw)
     else:
-        # Healthy zone – skip AI call entirely
+        # Healthy zone – skip AI call; still provide positive pollination boost guidance
         ai_result = {
             "biodiversity_insight": (
-                f"Zone {zone_id} is in healthy ecological condition. "
-                f"Pollinator activity is strong with no significant stress factors detected. "
-                f"Continuing current land management practices will sustain this outcome."
+                f"Zone {zone_id} is in healthy ecological condition — a great starting point "
+                f"for increasing pollination further. Pollinator activity is strong and no "
+                f"significant stress factors were detected. Small habitat improvements can push "
+                f"visit rates and fruit-set even higher this season."
             ),
             "top_intervention": (
-                "Maintain existing habitat management; conduct a quarterly species survey "
-                "to detect any early-stage biodiversity changes before they become critical."
+                "Add 5-metre flowering border strips of phacelia or marigold along at least "
+                "two field edges to attract additional native bees and increase pollination "
+                "visit frequency by an estimated 10–20% — low cost, high reward."
             ),
+            "pollination_boost_actions": [
+                "Install simple bamboo-bundle bee hotels (10 per hectare) on south-facing "
+                "fences to grow resident solitary bee populations before next flowering season.",
+                "Apply compost tea (1:10 dilution) around flowering plants monthly to enrich "
+                "soil fertility and improve floral nectar quality for pollinators.",
+                "Conduct a quarterly pollinator species survey to track diversity trends and "
+                "catch any early biodiversity changes before they reduce visit rates.",
+            ],
             "insight_source": "healthy_zone_no_ai",
         }
 
     # ── 5. Assemble output ───────────────────────────────────────────────────
-    output = _build_output(zone_id, lat, lon, scores, anomalies, ai_result, raw)
+    decision_brief = build_decision_brief(scores, anomalies, raw)
+    output = _build_output(zone_id, lat, lon, scores, anomalies, ai_result, raw, decision_brief)
     return output
 
 
@@ -101,8 +155,9 @@ def _build_output(
     lon: float,
     scores: dict[str, Any],
     anomalies: list[dict[str, Any]],
-    ai_result: dict[str, str],
+    ai_result: dict[str, Any],
     raw: dict[str, Any],
+    decision_brief: dict[str, Any],
 ) -> dict[str, Any]:
     """Assemble the final dashboard-ready JSON structure."""
 
@@ -116,10 +171,8 @@ def _build_output(
         "pesticide": raw["pesticide"].get("source", "unknown"),
         "visitation": raw.get("visitation", {}).get("source", "unknown"),
     }
-    data_quality = {
-        key: ("modelled" if source in ("modelled_visitation",) else "mock" if "mock" in source else "live")
-        for key, source in data_sources.items()
-    }
+    data_quality = {key: _quality_from_source(source) for key, source in data_sources.items()}
+    data_caveats = _build_data_caveats(raw)
 
     return {
         # ── Identity ──────────────────────────────────────────────────────
@@ -149,8 +202,10 @@ def _build_output(
         "crop_dependency": scores["crop_dependency"],
 
         # ── AI / rule-based insights ──────────────────────────────────────
-        "biodiversity_insight": ai_result["biodiversity_insight"],
-        "top_intervention":     ai_result["top_intervention"],
+        "biodiversity_insight":     ai_result["biodiversity_insight"],
+        "top_intervention":         ai_result["top_intervention"],
+        "pollination_boost_actions": ai_result.get("pollination_boost_actions", []),
+        "decision_brief":           decision_brief,
 
         # ── Metadata / audit ─────────────────────────────────────────────
         "_meta": {
@@ -160,23 +215,23 @@ def _build_output(
             "warning_count":    sum(1 for a in anomalies if a["severity"] == "WARNING"),
             "data_sources":     data_sources,
             "data_quality":      data_quality,
+            "data_caveats":      data_caveats,
+            "realtime_status":   raw.get("_realtime", {}),
             "visitation_summary": {
-                "avg_visitations_per_hour": raw.get("visitation", {}).get("avg_visitations_per_hour"),
-                "expected_visitations_per_hour": raw.get("visitation", {}).get("expected_visitations_per_hour"),
-                "visitation_ratio": raw.get("visitation", {}).get("visitation_ratio"),
-                "decline_rate_12w": raw.get("visitation", {}).get("decline_rate_12w"),
-                "pollination_timing_disruption": raw.get("visitation", {}).get("pollination_timing_disruption"),
-                "flowering_success_rate": raw.get("visitation", {}).get("flowering_success_rate"),
                 "twelve_week_visits_per_hour": raw.get("visitation", {}).get("twelve_week_visits_per_hour"),
             },
             "raw_factor_stress": scores["factor_scores"],
             "factor_weights":    scores.get("factor_weights"),
             "overall_stress":    scores["overall_stress"],
+            "anomaly_pressure_adjustment": scores.get("anomaly_pressure_adjustment"),
             "crop_dependency_basis": scores.get("crop_dependency_basis"),
+            "crop_source":      raw.get("_meta", {}).get("geo_profile", {}).get("crop_source"),
+            "geo_classification": raw.get("_meta", {}).get("geo_profile", {}).get("classification"),
             "model_limitations": (
-                "Factor scores are modelled decision-support estimates from available climate, land-cover, "
-                "species, pesticide, and mock/surrogate inputs. They should not be read as calibrated farm-level "
-                "sensor measurements or universally validated causal percentages."
+                "Factor scores are decision-support estimates from available climate, land-cover, species, "
+                "pesticide, modelled, and fallback inputs. Modelled visitation signals are proxy estimates "
+                "unless the visitation source is a live observation provider. Do not read these outputs as "
+                "calibrated farm-level sensor measurements or universally validated causal percentages."
             ),
         },
     }

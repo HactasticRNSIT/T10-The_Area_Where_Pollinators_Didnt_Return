@@ -8,6 +8,7 @@ from typing import Any
 API_ENDPOINTS = {
     # Open-Meteo historical climate data (no API key)
     "open_meteo": "https://archive-api.open-meteo.com/v1/archive",
+    "open_meteo_forecast": "https://api.open-meteo.com/v1/forecast",
 
     # NASA POWER daily data (no API key)
     "nasa_power": "https://power.larc.nasa.gov/api/temporal/daily/point",
@@ -28,6 +29,10 @@ API_ENDPOINTS = {
     "agromonitoring_polygons":     "http://api.agromonitoring.com/agro/1.0/polygons",
     "agromonitoring_image_search": "http://api.agromonitoring.com/agro/1.0/image/search",
     "agromonitoring_ndvi_history": "http://api.agromonitoring.com/agro/1.0/ndvi/history",
+
+    # OpenStreetMap Nominatim — free reverse geocoding, no API key required.
+    # Usage policy: max 1 req/s; descriptive User-Agent must be set.
+    "nominatim_reverse": "https://nominatim.openstreetmap.org/reverse",
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -122,77 +127,26 @@ ANOMALY_THRESHOLDS = {
 # then falls back to DEFAULT_CROP_POLLINATION_DEPENDENCY.
 # ──────────────────────────────────────────────────────────────────────────────
 
-# Default (Europe / generic)
+# India-oriented fallback used when no dynamic geo_profile is available.
+# The platform is focused on Indian agriculture, so avoid European defaults
+# such as almonds/blueberries unless a regional classifier explicitly returns them.
 DEFAULT_CROP_POLLINATION_DEPENDENCY = {
-    "almonds":     1.00,
-    "blueberries": 0.90,
-    "canola":      0.70,
-    "sunflower":   0.65,
-    "wheat":       0.10,
-    "maize":       0.05,
+    "mustard":   0.80,
+    "sunflower": 0.65,
+    "mango":     0.75,
+    "cotton":    0.15,
+    "rice":      0.03,
+    "wheat":     0.10,
 }
 
-ZONE_CROP_REGISTRY: dict[str, dict[str, float]] = {
-    # --- Major States (Existing + New) ---
-    "IN_KA": {"sunflower": 0.90, "cotton": 0.15, "red gram": 0.40, "groundnut": 0.30, "coffee": 0.55},
-    "IN_RJ": {"mustard": 0.80, "cumin": 0.65, "coriander": 0.60, "wheat": 0.10, "bajra": 0.35},
-    "IN_UP": {"mango": 0.75, "sugarcane": 0.02, "wheat": 0.10, "potato": 0.10, "barley": 0.05},
-    "IN_GJ": {"cotton": 0.15, "groundnut": 0.30, "castor": 0.35, "wheat": 0.10, "bajra": 0.35},
-    "IN_WB": {"rice": 0.03, "jute": 0.05, "mustard": 0.80, "tea": 0.70, "potato": 0.10},
-    "IN_KL": {"cardamom": 0.95, "black pepper": 0.60, "coffee": 0.55, "coconut": 0.30, "rubber": 0.05},
-    "IN_HP": {"apple": 0.95, "cherry": 0.90, "plum": 0.70, "wheat": 0.10, "potato": 0.10},
-    "IN_MH": {"orange": 0.75, "cotton": 0.15, "soybean": 0.25, "pomegranate": 0.60, "tur": 0.30},
-    "IN_MP": {"soybean": 0.25, "wheat": 0.10, "gram": 0.20, "garlic": 0.40, "coriander": 0.60},
-    "IN_BR": {"lychee": 0.80, "mango": 0.75, "maize": 0.05, "wheat": 0.10, "sugarcane": 0.02},
-    "IN_TN": {"coconut": 0.30, "rice": 0.03, "cotton": 0.15, "groundnut": 0.30, "bananas": 0.10},
-    "IN_AP": {"chillies": 0.60, "tobacco": 0.05, "cotton": 0.15, "rice": 0.03, "groundnut": 0.30},
-    "IN_TG": {"turmeric": 0.50, "cotton": 0.15, "maize": 0.05, "chillies": 0.60, "rice": 0.03},
-    "IN_PB": {"wheat": 0.10, "rice": 0.03, "cotton": 0.15, "mustard": 0.80, "sugarcane": 0.02},
-    "IN_HR": {"mustard": 0.80, "wheat": 0.10, "rice": 0.03, "cotton": 0.15, "sugarcane": 0.02},
-    "IN_AS": {"tea": 0.70, "rice": 0.03, "jute": 0.05, "citrus": 0.50},
-    "IN_OR": {"rice": 0.03, "jute": 0.05, "groundnut": 0.30, "pulses": 0.40},
-    "IN_CT": {"rice": 0.03, "maize": 0.05, "pulses": 0.40, "oilseeds": 0.40},
-    "IN_JH": {"rice": 0.03, "maize": 0.05, "pulses": 0.40, "ragi": 0.20},
-    "IN_UT": {"wheat": 0.10, "rice": 0.03, "millets": 0.20, "fruits": 0.60},
-    "IN_GA": {"cashew": 0.70, "coconut": 0.30, "rice": 0.03},
-    "IN_SK": {"cardamom": 0.95, "ginger": 0.50, "orange": 0.75, "maize": 0.05},
-    "IN_JK": {"apple": 0.95, "saffron": 0.90, "walnut": 0.85, "almond": 1.00},
-    "IN_LA": {"apricot": 0.85, "barley": 0.05, "vegetables": 0.45},
-    "IN_TR": {"rubber": 0.05, "tea": 0.70, "pineapple": 0.80, "rice": 0.03},
-    "IN_ML": {"pineapple": 0.80, "orange": 0.75, "ginger": 0.50, "turmeric": 0.50},
-    "IN_MN": {"pineapple": 0.80, "orange": 0.75, "rice": 0.03, "maize": 0.05},
-    "IN_MZ": {"ginger": 0.50, "turmeric": 0.50, "pineapple": 0.80, "rice": 0.03},
-    "IN_NL": {"maize": 0.05, "rice": 0.03, "pulses": 0.40, "citrus": 0.50},
-    "IN_AR": {"orange": 0.75, "pineapple": 0.80, "kiwi": 0.90, "maize": 0.05},
-    "IN_DL": {"wheat": 0.10, "vegetables": 0.45, "mustard": 0.80},
-    "IN_CH": {"wheat": 0.10, "rice": 0.03},
-    "IN_PY": {"rice": 0.03, "coconut": 0.30, "groundnut": 0.30},
-    "IN_AN": {"coconut": 0.30, "areca nut": 0.40, "rice": 0.03},
-    "IN_LD": {"coconut": 0.30, "tapioca": 0.10},
-    "IN_DN": {"rice": 0.03, "jowar": 0.05, "pulses": 0.40},
-
-    # --- International / Generic ---
-    "FARM_G": {"almonds": 1.00, "stone fruit": 0.85, "tomatoes": 0.55, "grapes": 0.10, "canola": 0.70},
-    "FARM_H": {"maize": 0.05, "soybean": 0.25, "sunflower": 0.65, "canola": 0.70, "wheat": 0.10},
-}
-
-
-def get_crop_dependency_for_zone(zone_id: str) -> dict[str, float]:
+def get_crop_dependency_for_zone(zone_id: str, geo_profile: dict = None) -> dict[str, float]:
     """
     Return the crop–dependency dict for a given zone_id.
-
-    Matching strategy (longest prefix wins):
-      zone_id = "IN_GJ_01"  → tries "IN_GJ_01", then "IN_GJ", then "IN"
-    Falls back to DEFAULT_CROP_POLLINATION_DEPENDENCY for unknown zones.
+    Relies on the dynamically resolved geo_profile (state registry → LLM → climate fallback).
     """
-    if not zone_id:
-        return DEFAULT_CROP_POLLINATION_DEPENDENCY
-    # Try progressively shorter prefixes
-    parts = zone_id.split("_")
-    for length in range(len(parts), 0, -1):
-        prefix = "_".join(parts[:length])
-        if prefix in ZONE_CROP_REGISTRY:
-            return ZONE_CROP_REGISTRY[prefix]
+    if geo_profile and 'crops' in geo_profile:
+        return geo_profile['crops']
+
     return DEFAULT_CROP_POLLINATION_DEPENDENCY
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -214,6 +168,18 @@ OPEN_METEO_VARS = [
     "precipitation_sum",
     "wind_speed_10m_max",
     "et0_fao_evapotranspiration",
+]
+
+OPEN_METEO_AGRO_HOURLY_VARS = [
+    "relative_humidity_2m",
+    "vapour_pressure_deficit",
+    "soil_temperature_0cm",
+    "soil_temperature_6cm",
+    "soil_moisture_0_to_1cm",
+    "soil_moisture_1_to_3cm",
+    "soil_moisture_3_to_9cm",
+    "soil_moisture_9_to_27cm",
+    "soil_moisture_27_to_81cm",
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -251,6 +217,15 @@ GROQ_MAX_TOKENS = 1024
 GROQ_TEMPERATURE = 0.3
 AI_CALL_MIN_SEVERITY = "WARNING"  # trigger AI for WARNING or CRITICAL
 
+# Crop lookup enrichment. LLM crop resolution is optional and aggressively
+# cached because crop mixes change slowly compared with request frequency.
+GROQ_CROP_LOOKUP_ENABLED = os.environ.get("GROQ_CROP_LOOKUP_ENABLED", "1").lower() not in {
+    "0", "false", "no"
+}
+GROQ_CROP_LOOKUP_TIMEOUT = float(os.environ.get("GROQ_CROP_LOOKUP_TIMEOUT", "4"))
+GROQ_CROP_CACHE_PRECISION = int(os.environ.get("GROQ_CROP_CACHE_PRECISION", "1"))
+GROQ_CROP_CACHE_TTL_SECONDS = int(os.environ.get("GROQ_CROP_CACHE_TTL_SECONDS", str(7 * 24 * 3600)))
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Habitat suitability scoring weights (sub-component of nesting)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -278,7 +253,7 @@ AGROMONITORING_IMAGE_WINDOW_DAYS: int = 30
 AGROMONITORING_MAX_CLOUD_PCT: float = 30.0
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Fix 6: Per-zone YAML weight overrides
+# Per-zone YAML weight overrides
 # Loaded once at import time from zone_weights.yaml (sibling of config.py).
 # Falls back to FACTOR_WEIGHTS if the file is absent or unparseable.
 # ──────────────────────────────────────────────────────────────────────────────
@@ -318,26 +293,26 @@ def _load_zone_weights() -> None:
 _load_zone_weights()
 
 
-def get_factor_weights_for_zone(zone_id: str) -> dict[str, float]:
+def get_factor_weights_for_zone(zone_id: str, geo_profile: dict = None) -> dict[str, float]:
     """
     Return the factor weights for a given zone_id.
-    Longest-prefix match against zone_weights.yaml; falls back to global
-    FACTOR_WEIGHTS if no override exists.
-
-    Example:
-        zone_id = "IN_KA_01" → tries "IN_KA_01", "IN_KA", "IN" → first match wins.
+    Longest-prefix match against zone_weights.yaml; falls back to dynamic geo_profile.
     """
-    if not zone_id:
-        return FACTOR_WEIGHTS
-    parts = zone_id.split("_")
-    for length in range(len(parts), 0, -1):
-        prefix = "_".join(parts[:length])
-        if prefix in _ZONE_WEIGHT_OVERRIDES:
-            return _ZONE_WEIGHT_OVERRIDES[prefix]
+    if zone_id:
+        parts = zone_id.split("_")
+        for length in range(len(parts), 0, -1):
+            prefix = "_".join(parts[:length])
+            if prefix in _ZONE_WEIGHT_OVERRIDES:
+                return _ZONE_WEIGHT_OVERRIDES[prefix]
+
+    # Dynamic profile is used as a fallback
+    if geo_profile and 'factor_weights' in geo_profile:
+        return geo_profile['factor_weights']
+
     return FACTOR_WEIGHTS
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Fix 8: Agro-climatic zone threshold overrides
+# Agro-climatic zone threshold overrides
 # Allows anomaly detection to use geography-aware thresholds instead of
 # a single global table, eliminating false positives in tropical/arid zones.
 # ──────────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,178 @@
+{
+  "sources": {
+    "bio_consumption": {
+      "file": "04_state-wise_consumption_of_bio-pesticides.xlsx",
+      "metric": "2024-25",
+      "unit": "MT Formulation"
+    },
+    "bio_demand": {
+      "file": "02_state-wise_demand_of_bio-pesticides.xlsx",
+      "metric": "Projected Demand for 2025-26",
+      "unit": "MT Formulation"
+    },
+    "chemical_demand": {
+      "file": "01_state-wise_demand_of_chemical_pesticides.xlsx",
+      "metric": "Projected Demand for 2025-26",
+      "unit": "MT Formulation"
+    }
+  },
+  "states": {
+    "IN_AP": {
+      "bio_consumption_mt_2024_25": 42.911,
+      "bio_demand_mt_2025_26": 100.0,
+      "chemical_demand_mt_2025_26": 1760.0,
+      "state_name": "Andhra Pradesh"
+    },
+    "IN_AR": {
+      "bio_consumption_mt_2024_25": 15.9,
+      "bio_demand_mt_2025_26": 16.2,
+      "chemical_demand_mt_2025_26": 3.6,
+      "state_name": "Arunachal Pradesh"
+    },
+    "IN_AS": {
+      "bio_consumption_mt_2024_25": 356.8,
+      "bio_demand_mt_2025_26": 374.45,
+      "chemical_demand_mt_2025_26": 640.9,
+      "state_name": "Assam"
+    },
+    "IN_BR": {
+      "bio_consumption_mt_2024_25": 133.51641,
+      "bio_demand_mt_2025_26": 160.219692,
+      "chemical_demand_mt_2025_26": 1295.0,
+      "state_name": "Bihar"
+    },
+    "IN_CT": {
+      "bio_consumption_mt_2024_25": 791.0,
+      "bio_demand_mt_2025_26": 820.0,
+      "chemical_demand_mt_2025_26": 1850.0,
+      "state_name": "Chhattisgarh"
+    },
+    "IN_GA": {
+      "bio_consumption_mt_2024_25": 0.27,
+      "bio_demand_mt_2025_26": 0.31,
+      "chemical_demand_mt_2025_26": 33.06,
+      "state_name": "Goa"
+    },
+    "IN_GJ": {
+      "bio_consumption_mt_2024_25": 621.0,
+      "bio_demand_mt_2025_26": 853.0,
+      "chemical_demand_mt_2025_26": 2078.0,
+      "state_name": "Gujarat"
+    },
+    "IN_HP": {
+      "bio_consumption_mt_2024_25": 0.0,
+      "chemical_demand_mt_2025_26": 453.4988,
+      "state_name": "Himachal Pradesh"
+    },
+    "IN_HR": {
+      "bio_consumption_mt_2024_25": 445.0,
+      "bio_demand_mt_2025_26": 470.0,
+      "chemical_demand_mt_2025_26": 4215.0,
+      "state_name": "Haryana"
+    },
+    "IN_JH": {
+      "bio_consumption_mt_2024_25": 305.065,
+      "bio_demand_mt_2025_26": 335.575,
+      "chemical_demand_mt_2025_26": 1470.225,
+      "state_name": "Jharkhand"
+    },
+    "IN_JK": {
+      "bio_consumption_mt_2024_25": 0.34,
+      "bio_demand_mt_2025_26": 0.61,
+      "chemical_demand_mt_2025_26": 8828.501,
+      "state_name": "Jammu & Kashmir"
+    },
+    "IN_KA": {
+      "bio_consumption_mt_2024_25": 470.0,
+      "bio_demand_mt_2025_26": 630.0,
+      "chemical_demand_mt_2025_26": 2100.0,
+      "state_name": "Karnataka"
+    },
+    "IN_KL": {
+      "bio_consumption_mt_2024_25": 541.503,
+      "bio_demand_mt_2025_26": 595.653,
+      "chemical_demand_mt_2025_26": 509.597,
+      "state_name": "Kerala"
+    },
+    "IN_MH": {
+      "bio_consumption_mt_2024_25": 120.5,
+      "bio_demand_mt_2025_26": 121.82,
+      "chemical_demand_mt_2025_26": 10104.0,
+      "state_name": "Maharashtra"
+    },
+    "IN_ML": {
+      "bio_consumption_mt_2024_25": 7.26605,
+      "bio_demand_mt_2025_26": 9.3275,
+      "state_name": "Meghalaya"
+    },
+    "IN_MN": {
+      "bio_demand_mt_2025_26": 3.0,
+      "chemical_demand_mt_2025_26": 43.33,
+      "state_name": "Manipur"
+    },
+    "IN_MP": {
+      "bio_consumption_mt_2024_25": 380.0,
+      "bio_demand_mt_2025_26": 417.0,
+      "chemical_demand_mt_2025_26": 765.9,
+      "state_name": "Madhya Pradesh"
+    },
+    "IN_MZ": {
+      "chemical_demand_mt_2025_26": 48.67,
+      "state_name": "Mizoram"
+    },
+    "IN_NL": {
+      "bio_consumption_mt_2024_25": 38.045,
+      "bio_demand_mt_2025_26": 44.015,
+      "chemical_demand_mt_2025_26": 24.046,
+      "state_name": "Nagaland"
+    },
+    "IN_OR": {
+      "bio_consumption_mt_2024_25": 305.75,
+      "bio_demand_mt_2025_26": 325.0,
+      "chemical_demand_mt_2025_26": 1405.0,
+      "state_name": "Odisha"
+    },
+    "IN_PB": {
+      "bio_consumption_mt_2024_25": 228.0,
+      "bio_demand_mt_2025_26": 283.0,
+      "chemical_demand_mt_2025_26": 5355.0,
+      "state_name": "Punjab"
+    },
+    "IN_RJ": {
+      "bio_consumption_mt_2024_25": 104.0,
+      "bio_demand_mt_2025_26": 126.0,
+      "chemical_demand_mt_2025_26": 2020.0,
+      "state_name": "Rajasthan"
+    },
+    "IN_TG": {
+      "bio_consumption_mt_2024_25": 642.0,
+      "bio_demand_mt_2025_26": 680.0,
+      "chemical_demand_mt_2025_26": 6469.0,
+      "state_name": "Telangana"
+    },
+    "IN_TN": {
+      "bio_consumption_mt_2024_25": 971.0,
+      "bio_demand_mt_2025_26": 1116.0,
+      "chemical_demand_mt_2025_26": 2175.0,
+      "state_name": "Tamil Nadu"
+    },
+    "IN_UP": {
+      "bio_consumption_mt_2024_25": 55.92,
+      "bio_demand_mt_2025_26": 70.0,
+      "chemical_demand_mt_2025_26": 14980.0,
+      "state_name": "Uttar Pradesh"
+    },
+    "IN_UT": {
+      "bio_consumption_mt_2024_25": 226.313,
+      "bio_demand_mt_2025_26": 253.789,
+      "chemical_demand_mt_2025_26": 217.197,
+      "state_name": "Uttarakhand"
+    },
+    "IN_WB": {
+      "bio_consumption_mt_2024_25": 1175.0,
+      "bio_demand_mt_2025_26": 1275.0,
+      "chemical_demand_mt_2025_26": 4570.0,
+      "state_name": "West Bengal"
+    }
+  }
+}

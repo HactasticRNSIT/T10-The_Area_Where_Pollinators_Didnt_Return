@@ -5,12 +5,18 @@ Stops 500 crashes from malformed inputs; returns clean 422 with field-level erro
 
 import logging
 import sys
+from pathlib import Path
 
-from dotenv import load_dotenv
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*args, **kwargs) -> None:
+        return None
+
+BACKEND_DIR = Path(__file__).parent
+load_dotenv(BACKEND_DIR / ".env")
 
 import os
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Query
@@ -21,7 +27,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from main import analyse_zone
 
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+FRONTEND_DIR = BACKEND_DIR.parent / "frontend"
 
 logging.basicConfig(
     level=logging.WARNING,
