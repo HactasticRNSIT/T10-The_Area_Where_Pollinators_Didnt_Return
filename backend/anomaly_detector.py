@@ -2,6 +2,8 @@
 import re
 from typing import Any
 
+__all__ = ["detect_anomalies", "has_ai_trigger_anomaly"]
+
 from config import ANOMALY_THRESHOLDS as _GLOBAL_T
 from config import get_anomaly_thresholds_for_zone  # Fix 8
 
@@ -100,8 +102,16 @@ def _localize_action(action: str, zone_id: str) -> str:
 
 
 def _replace_term(text: str, old: str, new: str) -> str:
+    def replacer(match):
+        matched_text = match.group(0)
+        if matched_text.istitle():
+            return new.title()
+        elif matched_text.isupper():
+            return new.upper()
+        else:
+            return new.lower()
     pattern = re.compile(rf"(?<![A-Za-z]){re.escape(old)}(?![A-Za-z])", re.IGNORECASE)
-    return pattern.sub(new, text)
+    return pattern.sub(replacer, text)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -200,7 +210,7 @@ def _check_pesticide(pesticide: dict[str, Any], T: dict) -> list[dict]:
             "plant phacelia or borage buffer strips to dilute pollen toxin concentration.",
         ))
 
-    return anomalies
+    return anomalies, None  # flowering_crops injected externally by detect_anomalies
 
 
 def _check_soil(
@@ -311,7 +321,8 @@ def _check_climate(climate: dict[str, Any], T: dict) -> list[dict]:
     temp_std     = climate.get("temp_std_c")
     total_precip = climate.get("total_precipitation_mm")
     drought_idx  = climate.get("drought_index")
-    if drought_idx is None and total_precip is None and temp_std is None:
+    wind_kmh     = climate.get("avg_windspeed_kmh")
+    if drought_idx is None and total_precip is None and temp_std is None and wind_kmh is None:
         return []  # entire climate source unavailable \u2014 no anomalies to raise
 
     # Temperature variance
@@ -339,18 +350,20 @@ def _check_climate(climate: dict[str, Any], T: dict) -> list[dict]:
     if total_precip is not None:
         precip_deficit = 30.0 - total_precip
         if precip_deficit >= T["rainfall_deficit_critical"]:
+            precip_threshold_critical = 30.0 - T["rainfall_deficit_critical"]
             anomalies.append(_anomaly(
                 "climate_variability", "total_precipitation_mm", "CRITICAL",
-                total_precip, T["rainfall_deficit_critical"],
+                total_precip, precip_threshold_critical,
                 f"Only {total_precip:.1f} mm of rainfall in 30 days \u2013 a deficit of {precip_deficit:.1f} mm "
                 f"from the minimum threshold; nectar secretion in most flowers drops by >70% under this drought.",
                 "Install supplementary water stations (shallow dishes with pebbles) at 50 m intervals "
                 "across the zone; apply emergency irrigation to wildflower margin strips at 5 mm/day.",
             ))
         elif precip_deficit >= T["rainfall_deficit_warning"]:
+            precip_threshold_warning = 30.0 - T["rainfall_deficit_warning"]
             anomalies.append(_anomaly(
                 "climate_variability", "total_precipitation_mm", "WARNING",
-                total_precip, T["rainfall_deficit_warning"],
+                total_precip, precip_threshold_warning,
                 f"Rainfall of {total_precip:.1f} mm over 30 days is {precip_deficit:.1f} mm below "
                 f"the recommended minimum \u2013 expect reduced nectar concentration.",
                 "Check field-margin flowering plant health weekly; prepare drip-irrigation lines "
@@ -376,6 +389,35 @@ def _check_climate(climate: dict[str, Any], T: dict) -> list[dict]:
                 f"flowering duration will shorten and nectar sugar content will drop.",
                 "Prioritise supplemental water for high-value pollinator plants (borage, phacelia, clover); "
                 "delay mowing of grass margins to preserve moisture-retaining biomass.",
+            ))
+
+    # 2.5: Wind speed — avg_windspeed_kmh was already fetched from Open-Meteo but
+    # was not previously checked for anomalies.
+    # WARNING  >=15 km/h: foraging becomes erratic (COLOSS BeeBook field methods).
+    # CRITICAL >=25 km/h: complete cessation of bee flight (IBRA field guidance).
+    if wind_kmh is not None:
+        if wind_kmh >= T["wind_speed_critical"]:
+            anomalies.append(_anomaly(
+                "climate_variability", "avg_windspeed_kmh", "CRITICAL",
+                wind_kmh, T["wind_speed_critical"],
+                f"Average wind speed of {wind_kmh:.1f} km/h exceeds the bee flight threshold of "
+                f"{T['wind_speed_critical']} km/h \u2014 foraging ceases entirely above this level, "
+                f"causing missed pollination events during the daily activity window.",
+                "Relocate hives to the most sheltered corner of the zone (ideally behind a tree line "
+                "or barn wall facing away from the prevailing wind); erect a 2 m windbreak net or "
+                "establish a fast-growing shelterbelt of drumstick (Moringa) or karanj on the windward side. "
+                "Avoid aerial spraying during high-wind periods.",
+            ))
+        elif wind_kmh >= T["wind_speed_warning"]:
+            anomalies.append(_anomaly(
+                "climate_variability", "avg_windspeed_kmh", "WARNING",
+                wind_kmh, T["wind_speed_warning"],
+                f"Average wind speed of {wind_kmh:.1f} km/h is above {T['wind_speed_warning']} km/h \u2014 "
+                f"sustained winds at this level reduce foraging efficiency by 20\u201340% "
+                f"as bees expend more energy flying and visit fewer flowers per trip.",
+                "Plant a 1\u20132 m tall flowering shrub strip (sesame or marigold) on the upwind boundary "
+                "to reduce turbulence inside the zone; position any new hive installations on the "
+                "leeward side of existing structures or tree rows.",
             ))
 
     return anomalies
@@ -411,8 +453,8 @@ def _check_floral(
                 "regional native wildflower mix; target \u22653 species flowering simultaneously.",
             ))
 
-    # Species richness \u2014 0 is real data and triggers anomaly
-    if species_count is not None:
+    # Species richness \u2014 0 is real data and triggers anomaly (unless no data was found)
+    if species_count is not None and gbif.get("source") != "gbif_no_data":
         if species_count <= T["species_count_critical"]:
             anomalies.append(_anomaly(
                 "floral_diversity", "species_count", "CRITICAL",
@@ -445,12 +487,14 @@ def _check_visitation(visitation: dict[str, Any], T: dict) -> list[dict]:
     expected  = visitation.get("expected_visitations_per_hour")
 
     if ratio is not None:
+        visits_display = visits if visits is not None else 0.0
+        expected_display = expected if expected is not None else 0.0
         if ratio <= T["visitation_ratio_critical"]:
             anomalies.append(_anomaly(
                 "pollination_factor", "visitation_ratio", "CRITICAL",
                 ratio, T["visitation_ratio_critical"],
                 f"Observed pollinator visitation is only {ratio*100:.0f}% of the expected level "
-                f"({visits:.1f} vs {expected:.1f} visits/hour), indicating severe local visitation collapse.",
+                f"({visits_display:.1f} vs {expected_display:.1f} visits/hour), indicating severe local visitation collapse.",
                 "Create a pesticide-free flowering refuge within 7 days and monitor morning and evening "
                 "pollinator visits twice weekly until visitation recovers above 70% of expected levels.",
             ))
@@ -459,7 +503,7 @@ def _check_visitation(visitation: dict[str, Any], T: dict) -> list[dict]:
                 "pollination_factor", "visitation_ratio", "WARNING",
                 ratio, T["visitation_ratio_warning"],
                 f"Pollinator visitation is reduced to {ratio*100:.0f}% of expected activity "
-                f"({visits:.1f} vs {expected:.1f} visits/hour).",
+                f"({visits_display:.1f} vs {expected_display:.1f} visits/hour).",
                 "Add staggered flowering strips beside the crop edge and pause non-essential sprays during bloom.",
             ))
 
@@ -574,6 +618,9 @@ def detect_anomalies(raw: dict[str, Any], zone_id: str = "") -> list[dict[str, A
     Fix 8: loads zone-aware thresholds (agro-climatic overrides) so tropical,
     arid, and temperate zones are not falsely penalised by a single global table.
 
+    1.3: During active flowering windows, pesticide anomalies with recent
+    application (≤21 days) are upgraded to CRITICAL severity.
+
     Parameters
     ----------
     raw     : dict   Raw data bundle from fetch_all()
@@ -585,12 +632,37 @@ def detect_anomalies(raw: dict[str, Any], zone_id: str = "") -> list[dict[str, A
 
     anomalies: list[dict] = []
 
-    anomalies.extend(_check_pesticide(raw["pesticide"], T))
+    pest_anomalies, _ = _check_pesticide(raw["pesticide"], T)
+    anomalies.extend(pest_anomalies)
     anomalies.extend(_check_soil(raw["soil"], raw["nasa"], T))
     anomalies.extend(_check_climate(raw["climate"], T))
     anomalies.extend(_check_floral(raw["ndvi"], raw["gbif"], T))
     anomalies.extend(_check_visitation(raw.get("visitation", {}), T))
     anomalies.extend(_check_nesting(raw["ndvi"], T))
+
+    # 1.3: Phenology-aware upgrade — escalate pesticide anomalies to CRITICAL
+    # when the zone is in an active flowering window and spray is recent (≤21 days)
+    from phenology import get_active_flowering_crops
+    from config import get_crop_dependency_for_zone
+    geo_profile = raw.get("_meta", {}).get("geo_profile")
+    crop_dep = get_crop_dependency_for_zone(zone_id, geo_profile)
+    flowering_crops = get_active_flowering_crops(zone_id, crop_dep)
+    if flowering_crops:
+        days = raw.get("pesticide", {}).get("days_since_last_application")
+        for a in anomalies:
+            if (
+                a["factor"] == "pesticide_exposure"
+                and a["severity"] != "CRITICAL"
+                and days is not None
+                and int(days) <= 21
+            ):
+                a["severity"] = "CRITICAL"
+                a["flowering_window_active"] = True
+                a["flowering_crops"] = flowering_crops
+                a["description"] = (
+                    f"{a['description']} CRITICAL: Active flowering season detected "
+                    f"({', '.join(flowering_crops)}) — spray within 21-day residue window."
+                )
 
     # Localise all recommended_action strings to the zone's region
     for a in anomalies:

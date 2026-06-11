@@ -8,9 +8,15 @@ fertility — not just identify threats. Every output key drives uplift.
 import json
 import logging
 import os
+import textwrap
 from typing import Any
 
+__all__ = ["get_ai_insights"]
+
 import requests
+
+import time
+import threading
 
 from config import (
     API_ENDPOINTS,
@@ -20,7 +26,23 @@ from config import (
     REQUEST_TIMEOUT,
 )
 
+try:
+    from metrics import polynexus_groq_calls, polynexus_groq_fallback
+except ImportError:
+    polynexus_groq_calls = None
+    polynexus_groq_fallback = None
+
 log = logging.getLogger(__name__)
+
+# Circuit Breaker State
+# Fix 1.5: protect with a Lock() so concurrent thread-pool calls cannot corrupt
+# _cb_failures via a read-modify-write race (two threads both incrementing from 2
+# would both trip the breaker with different _cb_open_until timestamps).
+_cb_lock = threading.Lock()
+_cb_failures = 0
+_cb_open_until = 0.0
+_CB_THRESHOLD = 3
+_CB_COOLDOWN = 60.0
 
 # ──────────────────────────────────────────────────────────────────────────────
 # System prompt — every output key is oriented toward INCREASING pollination
@@ -125,7 +147,7 @@ def _build_user_prompt(
                 "variable":    a["variable"],
                 "observed":    a["observed_value"],
                 "threshold":   a["threshold"],
-                "description": a["description"][:140],
+                "description": a["description"],
                 "uplift_opportunity": (
                     "Fixing this factor is expected to increase pollinator "
                     "visits and improve fruit/seed set."
@@ -138,7 +160,7 @@ def _build_user_prompt(
                 "factor":      a["factor"],
                 "variable":    a["variable"],
                 "observed":    a["observed_value"],
-                "description": a["description"][:100],
+                "description": a["description"],
             }
             for a in warnings
         ],
@@ -242,6 +264,14 @@ def _call_groq(user_content: str, attempt: int = 1) -> dict[str, str]:
     Call Groq and return a validated response dict.
     Retries once with temperature=0 if validation fails on attempt 1.
     """
+    global _cb_failures, _cb_open_until
+
+    # Fix 1.5: read circuit-breaker state under lock
+    with _cb_lock:
+        open_until = _cb_open_until
+    if time.time() < open_until:
+        raise RuntimeError("Groq circuit breaker is OPEN. Fast-failing.")
+
     api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key:
         raise ValueError("GROQ_API_KEY environment variable is not set.")
@@ -262,24 +292,42 @@ def _call_groq(user_content: str, attempt: int = 1) -> dict[str, str]:
         ],
         "response_format": {"type": "json_object"},
     }
-    resp = requests.post(
-        API_ENDPOINTS["groq"],
-        headers=headers,
-        json=body,
-        timeout=REQUEST_TIMEOUT * 2,
-    )
-    resp.raise_for_status()
-    raw_text = resp.json()["choices"][0]["message"]["content"].strip()
+    
+    if polynexus_groq_calls is not None:
+        polynexus_groq_calls.inc()
+        
+    try:
+        resp = requests.post(
+            API_ENDPOINTS["groq"],
+            headers=headers,
+            json=body,
+            timeout=10,  # 10s timeout to prevent hanging pipeline
+        )
+        resp.raise_for_status()
+        raw_text = resp.json()["choices"][0]["message"]["content"].strip()
 
-    # Strip accidental markdown fences (Fix 3 robustness)
-    if raw_text.startswith("```"):
-        raw_text = raw_text.split("```")[1]
-        if raw_text.startswith("json"):
-            raw_text = raw_text[4:]
-        raw_text = raw_text.strip()
+        # Strip accidental markdown fences (Fix 3 robustness)
+        if raw_text.startswith("```"):
+            raw_text = raw_text.split("```")[1]
+            if raw_text.startswith("json"):
+                raw_text = raw_text[4:]
+            raw_text = raw_text.strip()
 
-    parsed = json.loads(raw_text)
-    return _validate_ai_response(parsed)
+        parsed = json.loads(raw_text)
+        result = _validate_ai_response(parsed)
+        # Fix 1.5: reset under lock
+        with _cb_lock:
+            _cb_failures = 0
+        return result
+    except Exception as exc:
+        if attempt == 2:  # Only trip circuit breaker on final attempt failure
+            # Fix 1.5: read-modify-write under lock to prevent race corruption
+            with _cb_lock:
+                _cb_failures += 1
+                if _cb_failures >= _CB_THRESHOLD:
+                    _cb_open_until = time.time() + _CB_COOLDOWN
+                    log.error("Groq circuit breaker tripped. Opening for %d seconds", _CB_COOLDOWN)
+        raise exc
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -295,7 +343,7 @@ def _rule_based_fallback(
     crop fertility, mirroring the AI system prompt's positive-action stance.
     """
     label  = scores["activity_label"]
-    stress = scores["pollination_stress_index"]
+    stress = str(scores.get("pollination_stress_index", "unknown"))
     top_a  = anomalies[0] if anomalies else None
     second = anomalies[1] if len(anomalies) > 1 else None
 
@@ -333,12 +381,16 @@ def _rule_based_fallback(
         "estimated 15–20%; monitor soil pH and organic matter quarterly."
     )
 
-    # Build three additional boost actions from remaining anomalies or defaults
+    # Fix 1.3: use set-based dedup with .strip() so that localized variants of
+    # anomaly[0]'s action (which may equal anomaly[1]'s localized action) are
+    # correctly excluded. Localization happens later so we dedup pre-localization here.
+    seen_actions: set[str] = {top_intervention.strip()}
     boost_actions: list[str] = []
     for anomaly in anomalies[1:4]:
-        action = anomaly.get("recommended_action", "")
-        if action and action != top_intervention:
+        action = (anomaly.get("recommended_action") or "").strip()
+        if action and action not in seen_actions:
             boost_actions.append(action)
+            seen_actions.add(action)
     while len(boost_actions) < 3:
         boost_actions.append(_BOOST_FALLBACKS[len(boost_actions)])
 
@@ -385,4 +437,8 @@ def get_ai_insights(
 
     fallback = _rule_based_fallback(scores, anomalies)
     fallback["insight_source"] = "rule_based_fallback"
+    
+    if polynexus_groq_fallback is not None:
+        polynexus_groq_fallback.inc()
+        
     return fallback
