@@ -1,7 +1,16 @@
 from __future__ import annotations
 
+import textwrap
 from typing import Any
 
+from config import (
+    RESILIENCE_SOC_OPTIMAL,
+    RESILIENCE_SOC_MIN,
+    get_species_norm_for_zone,
+)
+from hive_placement import get_hive_placement_advice
+
+__all__ = ["build_decision_brief"]
 
 FACTOR_LABELS = {
     "pesticide_exposure": "Pesticide pressure",
@@ -42,6 +51,12 @@ def build_decision_brief(
     crop_exposure = _crop_exposure(scores.get("crop_dependency", {}), overall_stress)
     resilience_score = _resilience_score(scores, raw)
     caveats = _data_caveats(raw)
+    hive_placement = get_hive_placement_advice(
+        crops=scores.get("crop_dependency", {}),
+        overall_stress=overall_stress,
+    )
+    margin = data_confidence["margin"]
+    activity = float(scores.get("activity_score", 0.0) or 0.0)
 
     return {
         "decision_grade": _decision_grade(scores.get("activity_score", 0), data_confidence, anomalies),
@@ -52,14 +67,20 @@ def build_decision_brief(
         "top_risk_drivers": top_drivers,
         "intervention_plan": intervention_plan,
         "crop_exposure": crop_exposure,
+        "hive_placement": hive_placement,
         "data_caveats": caveats,
+        "activity_score_margin": margin,
+        "activity_score_range": [
+            round(max(0.0, activity - margin), 1),
+            round(min(100.0, activity + margin), 1),
+        ],
         "judge_summary": _judge_summary(top_drivers, intervention_plan, data_confidence, resilience_score, caveats),
     }
 
 
 def _data_confidence(source_health: dict[str, Any]) -> dict[str, Any]:
     if not source_health:
-        return {"score": 50, "label": "Limited", "scorecard": []}
+        return {"score": 50, "label": "Limited", "margin": 15, "scorecard": []}
 
     scorecard = []
     total = 0.0
@@ -77,11 +98,14 @@ def _data_confidence(source_health: dict[str, Any]) -> dict[str, Any]:
     score = round((total / max(len(source_health), 1)) * 100)
     if score >= 82:
         label = "High"
+        margin = 3    # all-live sources: tight confidence interval
     elif score >= 62:
         label = "Medium"
+        margin = 8    # mixed live/modelled: moderate uncertainty
     else:
         label = "Limited"
-    return {"score": score, "label": label, "scorecard": scorecard}
+        margin = 15   # all-fallback: wide interval — data provenance uncertain
+    return {"score": score, "label": label, "margin": margin, "scorecard": scorecard}
 
 
 def _top_drivers(
@@ -132,6 +156,71 @@ def _data_caveats(raw: dict[str, Any]) -> list[str]:
     return caveats
 
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Intervention cost-benefit model (roadmap item 3.1)
+# ──────────────────────────────────────────────────────────────────────────────
+# Each entry maps a keyword (matched case-insensitively in the action string)
+# to a {cost_tier, uplift_range, timeframe} triple.
+# Ordering: keywords are checked longest-first to prevent partial matches
+# (e.g. "drip irrigation" matches before "irrigation").
+# Sources:
+#   - ICAR farm advisory bulletins for Indian cost benchmarks
+#   - COLOSS BeeBook chapter 4 (colony management uplift estimates)
+#   - FAO agri-environment scheme evaluation reports
+
+_INTERVENTION_COST_MODEL: list[tuple[str, dict[str, str]]] = sorted([
+    # Low-cost physical interventions
+    ("bamboo-bundle bee hotel",   {"cost_tier": "Low",    "uplift_range": "5–15%",   "timeframe": "1 season"}),
+    ("bee hotel",                  {"cost_tier": "Low",    "uplift_range": "5–15%",   "timeframe": "1 season"}),
+    ("water station",              {"cost_tier": "Low",    "uplift_range": "5–10%",   "timeframe": "Immediate"}),
+    ("shallow dishes",             {"cost_tier": "Low",    "uplift_range": "5–10%",   "timeframe": "Immediate"}),
+    ("warning sign",               {"cost_tier": "Low",    "uplift_range": "5–10%",   "timeframe": "Immediate"}),
+    ("notify",                     {"cost_tier": "Low",    "uplift_range": "5–10%",   "timeframe": "Immediate"}),
+    ("mulch",                      {"cost_tier": "Low",    "uplift_range": "5–10%",   "timeframe": "1 season"}),
+    ("compost tea",                {"cost_tier": "Low",    "uplift_range": "5–10%",   "timeframe": "1–2 seasons"}),
+    ("delay mowing",               {"cost_tier": "Low",    "uplift_range": "5–10%",   "timeframe": "Immediate"}),
+    # Moderate-cost agronomic / habitat
+    ("flower strip",               {"cost_tier": "Low",    "uplift_range": "10–20%",  "timeframe": "1 season"}),
+    ("wildflower strip",           {"cost_tier": "Low",    "uplift_range": "10–20%",  "timeframe": "1 season"}),
+    ("cover crop",                 {"cost_tier": "Low",    "uplift_range": "10–20%",  "timeframe": "1 season"}),
+    ("seed mix",                   {"cost_tier": "Low",    "uplift_range": "10–20%",  "timeframe": "1 season"}),
+    ("windbreak net",              {"cost_tier": "Medium", "uplift_range": "10–20%",  "timeframe": "1 season"}),
+    ("shade net",                  {"cost_tier": "Medium", "uplift_range": "10–20%",  "timeframe": "1 season"}),
+    ("ipm",                        {"cost_tier": "Medium", "uplift_range": "20–40%",  "timeframe": "1–2 seasons"}),
+    ("integrated pest management", {"cost_tier": "Medium", "uplift_range": "20–40%",  "timeframe": "1–2 seasons"}),
+    ("biological control",         {"cost_tier": "Medium", "uplift_range": "10–25%",  "timeframe": "1–2 seasons"}),
+    ("bio-pesticide",              {"cost_tier": "Medium", "uplift_range": "15–30%",  "timeframe": "1 season"}),
+    ("neem oil",                   {"cost_tier": "Low",    "uplift_range": "15–25%",  "timeframe": "1 season"}),
+    ("drip irrigation",            {"cost_tier": "Medium", "uplift_range": "10–20%",  "timeframe": "1 season"}),
+    ("irrigation",                 {"cost_tier": "Medium", "uplift_range": "10–20%",  "timeframe": "1 season"}),
+    ("agricultural lime",          {"cost_tier": "Low",    "uplift_range": "10–20%",  "timeframe": "1–2 seasons"}),
+    ("lime",                       {"cost_tier": "Low",    "uplift_range": "10–20%",  "timeframe": "1–2 seasons"}),
+    ("hedgerow",                   {"cost_tier": "Medium", "uplift_range": "15–30%",  "timeframe": "2–3 seasons"}),
+    ("shrub belt",                 {"cost_tier": "Medium", "uplift_range": "15–25%",  "timeframe": "2–3 seasons"}),
+    ("shelterbelt",                {"cost_tier": "Medium", "uplift_range": "10–20%",  "timeframe": "2–3 seasons"}),
+    # Higher-cost structural
+    ("relocate hive",              {"cost_tier": "Medium", "uplift_range": "20–40%",  "timeframe": "Immediate"}),
+    ("managed hive",               {"cost_tier": "High",   "uplift_range": "30–60%",  "timeframe": "1 season"}),
+    ("hive",                       {"cost_tier": "High",   "uplift_range": "30–60%",  "timeframe": "1 season"}),
+    ("swale",                      {"cost_tier": "High",   "uplift_range": "10–20%",  "timeframe": "2–3 seasons"}),
+    ("compost",                    {"cost_tier": "Medium", "uplift_range": "10–20%",  "timeframe": "1–2 seasons"}),
+], key=lambda x: -len(x[0]))  # longest keyword first
+
+
+def _cost_benefit(action: str) -> dict[str, str]:
+    """
+    Match the action text against _INTERVENTION_COST_MODEL keywords
+    (case-insensitive, longest-first) and return {cost_tier, uplift_range, timeframe}.
+    Falls back to a generic Medium estimate when no keyword matches.
+    """
+    action_lower = action.lower()
+    for keyword, meta in _INTERVENTION_COST_MODEL:
+        if keyword in action_lower:
+            return meta
+    return {"cost_tier": "Medium", "uplift_range": "10–20%", "timeframe": "1–2 seasons"}
+
+
 def _intervention_plan(
     anomalies: list[dict[str, Any]],
     factor_scores: dict[str, Any],
@@ -160,6 +249,11 @@ def _intervention_plan(
             + factor_weight * 16
         )
         action = anomaly.get("recommended_action", "")
+        # textwrap.shorten avoids mid-word cuts that degrade LLM prompt quality (#20)
+        description = textwrap.shorten(
+            anomaly.get("description", ""), width=140, placeholder="…"
+        )
+        cost_meta = _cost_benefit(action)
         plan.append({
             "priority_score": round(priority),
             "severity": severity,
@@ -168,7 +262,10 @@ def _intervention_plan(
             "variable": variable,
             "action": action,
             "pollination_uplift": _pollination_uplift_phrase(factor, severity),
-            "why": anomaly.get("description", ""),
+            "why": description,
+            "cost_tier":   cost_meta["cost_tier"],
+            "uplift_range": cost_meta["uplift_range"],
+            "timeframe":   cost_meta["timeframe"],
         })
     return sorted(plan, key=lambda row: row["priority_score"], reverse=True)[:5]
 
@@ -232,13 +329,16 @@ def _resilience_score(scores: dict[str, Any], raw: dict[str, Any]) -> int:
     activity  = float(scores.get("activity_score", 0.0) or 0.0) / 100.0
     habitat   = float(scores.get("habitat_suitability_score", 0.0) or 0.0) / 100.0
 
-    # Biodiversity richness: 15+ species → 1.0; 0 species → 0.0
+    # Biodiversity richness: zone-aware species norm so tropical high-biodiversity
+    # zones (e.g. Kerala, IN_KL) don't saturate at maximum benefit too easily.
+    zone_id = raw.get("_meta", {}).get("zone_id", "")
     species_count = float(raw.get("gbif", {}).get("species_count", 0) or 0)
-    biodiversity  = min(1.0, species_count / 15.0)
+    resilience_norm = get_species_norm_for_zone(zone_id, norm_key="resilience")
+    biodiversity  = min(1.0, species_count / resilience_norm)
 
-    # Soil organic carbon: ≥2.5 g/kg → 1.0 (high resilience); ≤0.5 → 0.0
+    # Soil organic carbon
     soc = float(raw.get("soil", {}).get("organic_carbon_g_per_kg", 1.5) or 1.5)
-    soil_health = _clamp_01((soc - 0.5) / 2.0)
+    soil_health = _clamp_01((soc - RESILIENCE_SOC_MIN) / (RESILIENCE_SOC_OPTIMAL - RESILIENCE_SOC_MIN))
 
     # Visit stability: no decline → 1.0; 50 %+ decline over 12 weeks → 0.0
     decline = float(raw.get("visitation", {}).get("decline_rate_12w", 0.0) or 0.0)
@@ -298,13 +398,19 @@ def _judge_summary(
     fertility, not just naming the top risk driver.
     """
     top_driver   = drivers[0]["label"] if drivers else "Ecosystem stress"
-    top_action   = plan[0]["label"] if plan else "monitoring"
+    top_action   = plan[0]["label"] if plan else "Monitoring"
     uplift_hint  = plan[0].get("pollination_uplift", "") if plan else ""
+
+    # Lowercase only the FIRST character so compound noun phrases like
+    # "Nesting habitat" or "Pollination visits" remain readable in running prose
+    # rather than being fully downcased to "nesting habitat" everywhere. (#21)
+    action_text = top_action[0].lower() + top_action[1:] if top_action else ""
+    driver_text = top_driver[0].lower() + top_driver[1:] if top_driver else ""
 
     summary = (
         f"To increase pollination rates in this zone, the highest-priority step is "
-        f"to address {top_action.lower()} — the leading source of stress is "
-        f"{top_driver.lower()}. "
+        f"to address {action_text} — the leading source of stress is "
+        f"{driver_text}. "
         f"Decision confidence is {confidence['label'].lower()} at {confidence['score']}%, "
         f"with an ecosystem resilience score of {resilience_score}%."
     )

@@ -4,6 +4,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+__all__ = ["compute_pesticide_proxy", "validate_pesticide_mappings"]
+
 
 DATA_DIR = Path(__file__).parent / "data"
 PESTICIDE_CSV_PATH = DATA_DIR / "pesticide-use-tonnes.csv"
@@ -46,8 +48,7 @@ CROP_PESTICIDE_TYPE: dict[str, tuple[str, float]] = {
 }
 
 
-@lru_cache(maxsize=1)
-def _metadata() -> dict[str, Any]:
+def _metadata_impl() -> dict[str, Any]:
     if not PESTICIDE_METADATA_PATH.exists():
         return {}
     try:
@@ -55,6 +56,17 @@ def _metadata() -> dict[str, Any]:
             return json.load(fh)
     except (OSError, json.JSONDecodeError):
         return {}
+
+_metadata_cache: dict | None = None
+_metadata_mtime: float = 0.0
+
+def _metadata() -> dict[str, Any]:
+    global _metadata_cache, _metadata_mtime
+    mtime = PESTICIDE_METADATA_PATH.stat().st_mtime if PESTICIDE_METADATA_PATH.exists() else 0.0
+    if _metadata_cache is None or mtime != _metadata_mtime:
+        _metadata_cache = _metadata_impl()
+        _metadata_mtime = mtime
+    return _metadata_cache
 
 
 def dataset_citation() -> str:
@@ -66,8 +78,7 @@ def dataset_citation() -> str:
     return "Food and Agriculture Organization of the United Nations via Our World in Data"
 
 
-@lru_cache(maxsize=1)
-def load_india_state_pesticide_use() -> dict[str, dict[str, Any]]:
+def _load_india_state_pesticide_use_impl() -> dict[str, dict[str, Any]]:
     if not INDIA_STATE_PESTICIDE_PATH.exists():
         return {}
     try:
@@ -78,9 +89,19 @@ def load_india_state_pesticide_use() -> dict[str, dict[str, Any]]:
     states = data.get("states", {})
     return states if isinstance(states, dict) else {}
 
+_india_state_cache: dict | None = None
+_india_state_mtime: float = 0.0
 
-@lru_cache(maxsize=1)
-def load_latest_country_pesticide_use() -> dict[str, dict[str, Any]]:
+def load_india_state_pesticide_use() -> dict[str, dict[str, Any]]:
+    global _india_state_cache, _india_state_mtime
+    mtime = INDIA_STATE_PESTICIDE_PATH.stat().st_mtime if INDIA_STATE_PESTICIDE_PATH.exists() else 0.0
+    if _india_state_cache is None or mtime != _india_state_mtime:
+        _india_state_cache = _load_india_state_pesticide_use_impl()
+        _india_state_mtime = mtime
+    return _india_state_cache
+
+
+def _load_latest_country_pesticide_use_impl() -> dict[str, dict[str, Any]]:
     latest: dict[str, dict[str, Any]] = {}
     if not PESTICIDE_CSV_PATH.exists():
         return latest
@@ -105,6 +126,17 @@ def load_latest_country_pesticide_use() -> dict[str, dict[str, Any]]:
                     "tonnes": tonnes,
                 }
     return latest
+
+_latest_country_cache: dict | None = None
+_latest_country_mtime: float = 0.0
+
+def load_latest_country_pesticide_use() -> dict[str, dict[str, Any]]:
+    global _latest_country_cache, _latest_country_mtime
+    mtime = PESTICIDE_CSV_PATH.stat().st_mtime if PESTICIDE_CSV_PATH.exists() else 0.0
+    if _latest_country_cache is None or mtime != _latest_country_mtime:
+        _latest_country_cache = _load_latest_country_pesticide_use_impl()
+        _latest_country_mtime = mtime
+    return _latest_country_cache
 
 
 def get_latest_country_pesticide_use(country_code: str) -> dict[str, Any] | None:
@@ -172,7 +204,7 @@ def _usage_from_demand(demand_mt: float) -> tuple[float, int]:
     return usage_ppm, apps
 
 
-def compute_pesticide_proxy(zone_id: str) -> dict[str, Any]:
+def compute_pesticide_proxy(zone_id: str, geo_profile: dict | None = None) -> dict[str, Any]:
     from config import get_crop_dependency_for_zone
 
     warnings: list[str] = []
@@ -204,13 +236,12 @@ def compute_pesticide_proxy(zone_id: str) -> dict[str, Any]:
     elif zone_id.startswith("IN_"):
         warnings.append(f"No state pesticide adjustment for {zone_id}; using India country baseline")
 
-    # geo_profile is not available here — compute_pesticide_proxy runs inside
-    # the ThreadPoolExecutor before resolve_agro_zone is called.  We use the
-    # zone_id-based default (DEFAULT_CROP_POLLINATION_DEPENDENCY) which is
-    # India-oriented and safe.  The pesticide type selection below is a
-    # country-level proxy; zone-level crop specificity is limited by design.
+    # We use the geo_profile to get crops if provided. Otherwise fallback to zone default.
     usage_ppm, apps = _usage_from_demand(demand_mt)
-    crops = get_crop_dependency_for_zone(zone_id)
+    if geo_profile and "crops" in geo_profile:
+        crops = geo_profile["crops"]
+    else:
+        crops = get_crop_dependency_for_zone(zone_id)
     dominant_crop = max(crops, key=crops.get) if crops else "default"
     p_type, toxicity = CROP_PESTICIDE_TYPE.get(dominant_crop, CROP_PESTICIDE_TYPE["default"])
 

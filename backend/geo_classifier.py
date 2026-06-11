@@ -21,6 +21,7 @@ import os
 import json
 import time
 import requests
+import threading
 
 from config import (
     API_ENDPOINTS,
@@ -32,6 +33,9 @@ from config import (
     REQUEST_TIMEOUT,
 )
 from crop_registry import get_crops_for_state
+from network import make_session
+
+_SESSION = make_session()
 
 log = logging.getLogger(__name__)
 
@@ -41,9 +45,13 @@ log = logging.getLogger(__name__)
 
 _GEOCODE_TTL = 30 * 24 * 3600   # 30 days — state names change very rarely
 
+__all__ = ["resolve_agro_zone", "clear_crop_cache"]
+
 # key → (expiry_monotonic, value)
 _crop_cache: dict[tuple[float, float], tuple[float, dict | None]] = {}
 _geocode_cache: dict[tuple[float, float], tuple[float, str | None]] = {}
+_crop_cache_lock = threading.Lock()
+_geocode_cache_lock = threading.Lock()
 
 
 def _round_key(lat: float, lon: float) -> tuple[float, float]:
@@ -54,8 +62,10 @@ def _round_key(lat: float, lon: float) -> tuple[float, float]:
 
 def clear_crop_cache() -> None:
     """Test helper and operational escape hatch for refreshed crop lookups."""
-    _crop_cache.clear()
-    _geocode_cache.clear()
+    with _crop_cache_lock:
+        _crop_cache.clear()
+    with _geocode_cache_lock:
+        _geocode_cache.clear()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -71,17 +81,20 @@ def _reverse_geocode_state(lat: float, lon: float) -> str | None:
     Fails silently — a None return lets the pipeline fall through to Tier 2.
     """
     key = _round_key(lat, lon)
-    cached = _geocode_cache.get(key)
     now = time.monotonic()
-    if cached and now < cached[0]:
-        return cached[1]
+    with _geocode_cache_lock:
+        cached = _geocode_cache.get(key)
+        if cached and now < cached[0]:
+            return cached[1]
 
     def _remember(val: str | None) -> str | None:
-        _geocode_cache[key] = (now + _GEOCODE_TTL, val)
+        with _geocode_cache_lock:
+            _geocode_cache[key] = (now + _GEOCODE_TTL, val)
+        log.debug("[geocode_cache] cold-cache populated for %s -> %s", key, val)
         return val
 
     try:
-        resp = requests.get(
+        resp = _SESSION.get(
             API_ENDPOINTS["nominatim_reverse"],
             params={"lat": lat, "lon": lon, "format": "json", "zoom": 5},
             headers={"User-Agent": "PolyNexus/1.0 pollinator-ecosystem-dashboard"},
@@ -131,13 +144,16 @@ def _fetch_groq_crops(lat: float, lon: float) -> dict | None:
     Returns None on any failure so the caller falls through to Tier 3.
     """
     cache_key = _round_key(lat, lon)
-    cached = _crop_cache.get(cache_key)
     now = time.monotonic()
-    if cached and now < cached[0]:
-        return cached[1]
+    with _crop_cache_lock:
+        cached = _crop_cache.get(cache_key)
+        if cached and now < cached[0]:
+            return cached[1]
 
     def remember(value: dict | None) -> dict | None:
-        _crop_cache[cache_key] = (now + GROQ_CROP_CACHE_TTL_SECONDS, value)
+        with _crop_cache_lock:
+            _crop_cache[cache_key] = (now + GROQ_CROP_CACHE_TTL_SECONDS, value)
+        log.debug("[crop_cache] cold-cache populated for %s -> %s", cache_key, list(value.keys()) if value else None)
         return value
 
     if not GROQ_CROP_LOOKUP_ENABLED:
@@ -164,7 +180,7 @@ def _fetch_groq_crops(lat: float, lon: float) -> dict | None:
     }
 
     try:
-        r = requests.post(
+        r = _SESSION.post(
             API_ENDPOINTS.get("groq", "https://api.groq.com/openai/v1/chat/completions"),
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json=body,
@@ -201,12 +217,20 @@ def resolve_agro_zone(lat: float, lon: float, climate_data: dict) -> dict:
       inferred_annual_precip_mm, mean_temp_c
     """
     # ── 1. Extract climate signals ────────────────────────────────────────────
-    elevation = climate_data.get("elevation", 0)
-    temp = climate_data.get("temp_mean_c", 25.0)
-    precip = climate_data.get("avg_daily_precip_mm", 0.0) * 365.0  # annualise daily mean
+    elevation = climate_data.get("elevation") or 0
+    temp = climate_data.get("temp_mean_c")
+    if temp is None:
+        temp = 25.0
+    precip_daily = climate_data.get("avg_daily_precip_mm")
+    if precip_daily is None:
+        precip_daily = 0.0
+    precip = precip_daily * 365.0  # annualise daily mean
 
     if "total_precipitation_mm" in climate_data and climate_data.get("days_fetched", 0) > 0:
-        precip = (climate_data["total_precipitation_mm"] / climate_data["days_fetched"]) * 365.0
+        total_p = climate_data.get("total_precipitation_mm")
+        days = climate_data.get("days_fetched", 0)
+        if total_p is not None and days > 0:
+            precip = (total_p / days) * 365.0
 
     # ── 2. Climate-zone classification + fallback crops ───────────────────────
     if elevation > 1500:
