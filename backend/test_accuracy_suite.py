@@ -4,6 +4,7 @@ from scorer import (
     _sigmoid_stress,
     _linear_stress,
     _clamp,
+    _bell_curve_stress,
     score_pesticide_exposure,
     score_soil_fertility,
     compute_all_scores
@@ -18,6 +19,14 @@ def test_clamp():
     assert _clamp(-0.5) == 0.0
     assert _clamp(1.5) == 1.0
     assert _clamp(0.5) == 0.5
+
+
+def test_bell_curve_stress():
+    # Centered at 0.50, meaning 0.50 is optimal (stress near 0)
+    assert _bell_curve_stress(0.50, 0.50, 0.30) < 0.01
+    # Very high or very low values should have high stress
+    assert _bell_curve_stress(0.99, 0.50, 0.30) > 0.70
+    assert _bell_curve_stress(0.01, 0.50, 0.30) > 0.70
 
 def test_linear_stress():
     # value, lo_ok, hi_stress

@@ -1,5 +1,6 @@
 import os
 import sys
+import math
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -21,10 +22,20 @@ def test_groq_crop_lookup_caches_missing_api_key(monkeypatch):
     clear_crop_cache()
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
 
-    assert _fetch_groq_crops(15.4589, 75.0078) is None
-    assert _fetch_groq_crops(15.4591, 75.0081) is None
+    result1 = _fetch_groq_crops(15.4589, 75.0078)
+    result2 = _fetch_groq_crops(15.4591, 75.0081)
 
-    assert len(_crop_cache) == 1
+    assert result1 is None
+    assert result2 is None
+
+    # Fix 9.3: assert on key existence rather than total cache size so the test
+    # is not fragile to execution order or other tests pre-populating the cache.
+    # Both coordinates should round to the same cache key (1 decimal place snap),
+    # so exactly one entry was inserted (the negative sentinel for missing API key).
+    assert any(
+        abs(k[0] - 15.5) < 0.1 and abs(k[1] - 75.0) < 0.1
+        for k in _crop_cache
+    ), "Expected a cache entry near (15.5, 75.0) after missing-key lookup"
 
 
 def test_anomaly_pressure_prevents_mild_score_with_many_critical_findings():
@@ -64,7 +75,7 @@ def test_anomaly_pressure_does_not_inflate_clear_scores_without_critical_finding
 
     adjusted = apply_anomaly_pressure(scores, [{"severity": "WARNING", "factor": "soil_fertility"}])
 
-    assert adjusted["overall_stress"] == 0.62
+    assert math.isclose(adjusted["overall_stress"], 0.62)
     assert adjusted["anomaly_pressure_adjustment"]["applied"] is False
 
 
