@@ -1,11 +1,19 @@
-requests>=2.31.0,<3.0.0
+# ── Runtime dependencies ─────────────────────────────────────────────────────
+# Vuln 8 fix: versions are range-pinned (>= lower, < next major).
+# Run `pip-audit` in CI to detect known CVEs in the resolved set.
+# Generate a lockfile with `pip freeze > requirements.lock` for reproducible builds.
+requests>=2.32.0,<3.0.0
 python-dotenv>=1.0.0,<2.0.0
-fastapi>=0.111.0,<1.0.0
+fastapi>=0.115.0,<1.0.0
 pydantic>=2.9.0,<3.0.0
-uvicorn[standard]>=0.29.0,<1.0.0
-groq>=0.9.0,<1.0.0
-PyYAML>=6.0.0,<7.0.0
+uvicorn[standard]>=0.30.0,<1.0.0
+groq>=0.11.0,<1.0.0
+PyYAML>=6.0.1,<7.0.0
 slowapi>=0.1.9,<0.2.0
-prometheus-fastapi-instrumentator>=6.0.0
-icalendar>=5.0.0
-python-multipart>=0.0.9
+prometheus-fastapi-instrumentator>=7.0.0,<8.0.0
+icalendar>=5.0.0,<7.0.0
+python-multipart>=0.0.9,<1.0.0
+
+# ── Dev / audit tools ─────────────────────────────────────────────────────────
+# Install with: pip install -r requirements-dev.txt
+# (kept separate so audit tools are never bundled into production images)

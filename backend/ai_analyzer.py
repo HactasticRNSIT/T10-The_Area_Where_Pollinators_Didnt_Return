@@ -32,7 +32,39 @@ except ImportError:
     polynexus_groq_calls = None
     polynexus_groq_fallback = None
 
+import re as _re
+
 log = logging.getLogger(__name__)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Fix Vuln 3: Prompt-injection sanitizer
+# Sensor-derived text (anomaly descriptions, field notes) is embedded in the
+# LLM user message.  Strip patterns that look like instruction overrides so
+# that a poisoned sensor value cannot hijack the advisory output.
+# ──────────────────────────────────────────────────────────────────────────────
+
+_INJECTION_PATTERNS = _re.compile(
+    r"(ignore (all |previous )?instructions?|forget (your |all )?instructions?|"
+    r"you are now|act as|jailbreak|system prompt|reveal (your |the )?prompt|"
+    r"print (your |the )?instructions?|override (previous |all )?instructions?)",
+    _re.IGNORECASE,
+)
+_MAX_FIELD_TEXT_LEN = 500  # truncate any single text field before embedding
+
+
+def _sanitize_for_prompt(text: object) -> str:
+    """Sanitise a single value before it is embedded in an LLM prompt.
+
+    - Converts non-strings to their repr (safe).
+    - Truncates to _MAX_FIELD_TEXT_LEN characters.
+    - Replaces matched injection patterns with [REDACTED].
+    """
+    if not isinstance(text, str):
+        return repr(text)
+    text = text[:_MAX_FIELD_TEXT_LEN]
+    text = _INJECTION_PATTERNS.sub("[REDACTED]", text)
+    return text
+
 
 # Circuit Breaker State
 # Fix 1.5: protect with a Lock() so concurrent thread-pool calls cannot corrupt
@@ -147,7 +179,8 @@ def _build_user_prompt(
                 "variable":    a["variable"],
                 "observed":    a["observed_value"],
                 "threshold":   a["threshold"],
-                "description": a["description"],
+                # Fix Vuln 3: sanitise description before embedding in prompt.
+                "description": _sanitize_for_prompt(a["description"]),
                 "uplift_opportunity": (
                     "Fixing this factor is expected to increase pollinator "
                     "visits and improve fruit/seed set."
@@ -160,7 +193,8 @@ def _build_user_prompt(
                 "factor":      a["factor"],
                 "variable":    a["variable"],
                 "observed":    a["observed_value"],
-                "description": a["description"],
+                # Fix Vuln 3: sanitise description.
+                "description": _sanitize_for_prompt(a["description"]),
             }
             for a in warnings
         ],
@@ -197,6 +231,12 @@ def _build_user_prompt(
 
 _MIN_INSIGHT_WORDS = 20
 _MIN_INTERVENTION_WORDS = 8
+# Fix Vuln 3: cap LLM output length — prevents exfiltration attempts that return
+# extremely long strings padded with hidden content.
+_MAX_INSIGHT_CHARS = 1200
+_MAX_INTERVENTION_CHARS = 600
+_MAX_BOOST_ACTION_CHARS = 200
+
 
 _BOOST_FALLBACKS = [
     "Plant flowering cover crops (e.g. sunflower or sesame) along field borders to attract foraging bees.",
@@ -232,10 +272,19 @@ def _validate_ai_response(data: dict) -> dict:
             f"biodiversity_insight too short ({len(insight.split())} words, "
             f"min {_MIN_INSIGHT_WORDS})"
         )
+    # Fix Vuln 3: hard cap on output length.
+    if len(insight) > _MAX_INSIGHT_CHARS:
+        raise ValueError(
+            f"biodiversity_insight too long ({len(insight)} chars, max {_MAX_INSIGHT_CHARS})"
+        )
     if len(intervention.split()) < _MIN_INTERVENTION_WORDS:
         raise ValueError(
             f"top_intervention too short ({len(intervention.split())} words, "
             f"min {_MIN_INTERVENTION_WORDS})"
+        )
+    if len(intervention) > _MAX_INTERVENTION_CHARS:
+        raise ValueError(
+            f"top_intervention too long ({len(intervention)} chars, max {_MAX_INTERVENTION_CHARS})"
         )
 
     # Normalise pollination_boost_actions — must be a list of 3 non-empty strings.
