@@ -1,0 +1,47 @@
+{
+  "_description": "Golden fixture: critical pesticide stress — neonicotinoid at 18ppm (>15 critical), 7 apps/month (>6 critical), applied 2 days ago. Expects CRITICAL pesticide anomalies.",
+  "zone_id": "IN_RJ",
+  "raw": {
+    "pesticide": {
+      "usage_ppm": 18.0,
+      "applications_per_month": 7,
+      "days_since_last_application": 2,
+      "pesticide_type": "neonicotinoid"
+    },
+    "soil": {
+      "ph": 6.8,
+      "organic_carbon_g_per_kg": 2.0,
+      "nitrogen_g_per_kg": 1.2
+    },
+    "nasa": {
+      "root_zone_wetness": 0.45
+    },
+    "climate": {
+      "temp_std_c": 10.0,
+      "total_precipitation_mm": 28.0,
+      "drought_index": 0.50,
+      "avg_windspeed_kmh": 10.0
+    },
+    "ndvi": {
+      "ndvi": 0.55,
+      "bare_soil_fraction": 0.20,
+      "disturbance_score": 0.25
+    },
+    "gbif": {
+      "species_count": 10,
+      "source": "gbif"
+    },
+    "visitation": {},
+    "_meta": {}
+  },
+  "expected": {
+    "anomaly_count_min": 3,
+    "must_include": [
+      {"factor": "pesticide_exposure", "severity": "CRITICAL", "variable": "usage_ppm"},
+      {"factor": "pesticide_exposure", "severity": "CRITICAL", "variable": "applications_per_month"},
+      {"factor": "pesticide_exposure", "severity": "WARNING",  "variable": "pesticide_type"}
+    ],
+    "no_india_terms": ["phacelia", "borage", "buckwheat", "lacewings", "county wildlife trust"],
+    "india_terms_required": ["neem oil", "Trichogramma"]
+  }
+}

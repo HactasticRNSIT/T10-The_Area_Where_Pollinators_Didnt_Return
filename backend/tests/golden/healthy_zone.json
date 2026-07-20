@@ -1,0 +1,48 @@
+{
+  "_description": "Golden fixture: healthy zone — all values in green range, no anomalies expected.",
+  "zone_id": "IN_KA",
+  "raw": {
+    "pesticide": {
+      "usage_ppm": 1.0,
+      "applications_per_month": 1,
+      "days_since_last_application": 25,
+      "pesticide_type": "pyrethroid"
+    },
+    "soil": {
+      "ph": 6.5,
+      "organic_carbon_g_per_kg": 2.8,
+      "nitrogen_g_per_kg": 1.5
+    },
+    "nasa": {
+      "root_zone_wetness": 0.52
+    },
+    "climate": {
+      "temp_std_c": 4.0,
+      "total_precipitation_mm": 35.0,
+      "drought_index": 0.30,
+      "avg_windspeed_kmh": 9.0
+    },
+    "ndvi": {
+      "ndvi": 0.60,
+      "bare_soil_fraction": 0.18,
+      "disturbance_score": 0.22
+    },
+    "gbif": {
+      "species_count": 14,
+      "source": "gbif"
+    },
+    "visitation": {
+      "visitation_ratio": 0.90,
+      "decline_rate_12w": 0.05,
+      "pollination_timing_disruption": 0.10,
+      "flowering_success_rate": 0.80,
+      "avg_visitations_per_hour": 18.0,
+      "expected_visitations_per_hour": 20.0
+    },
+    "_meta": {}
+  },
+  "expected": {
+    "anomaly_count": 0,
+    "severities": []
+  }
+}

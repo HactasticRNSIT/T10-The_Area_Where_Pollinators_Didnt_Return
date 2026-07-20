@@ -1,3 +1,9 @@
+import os
+import sys
+
+# Ensure backend directory is in sys.path so tests can import backend modules
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
 import pytest
 import data_fetcher
 import geo_classifier

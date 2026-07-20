@@ -10,13 +10,13 @@ import type {
   CompareResponse,
   HistoryPoint,
   HivePlacementAdvice,
-  InterventionPlanItem,
   PhenologyCrop,
   ZoneSummary,
 } from '../types/api';
 import { formatInr } from '../utils/currency';
+import { API_KEY } from '../api/client';
 
-const API_HEADERS = { 'X-API-Key': 'test-api-key-123' };
+const API_HEADERS = { 'X-API-Key': API_KEY };
 
 function titleCase(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
@@ -379,7 +379,7 @@ export function InterventionPlan({
   analysis: AnalysisResponse;
 }) {
   const zoneId = analysis.zone_id;
-  const { interventions, recordIntervention, loading } = useInterventions(zoneId);
+  const { recordIntervention } = useInterventions(zoneId);
   const [quickWins, setQuickWins] = useState(false);
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [notes, setNotes] = useState('');

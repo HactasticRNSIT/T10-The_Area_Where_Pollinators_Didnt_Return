@@ -1,0 +1,53 @@
+{
+  "_description": "Golden fixture: visitation collapse — visitation_ratio=0.30 (critical <=0.40), decline_rate_12w=0.50 (critical >=0.45). HP apple zone. Tests pollination_factor CRITICAL anomalies.",
+  "zone_id": "IN_HP",
+  "raw": {
+    "pesticide": {
+      "usage_ppm": 3.0,
+      "applications_per_month": 2,
+      "days_since_last_application": 14,
+      "pesticide_type": "pyrethroid"
+    },
+    "soil": {
+      "ph": 6.5,
+      "organic_carbon_g_per_kg": 2.5,
+      "nitrogen_g_per_kg": 1.4
+    },
+    "nasa": {
+      "root_zone_wetness": 0.50
+    },
+    "climate": {
+      "temp_std_c": 6.0,
+      "total_precipitation_mm": 35.0,
+      "drought_index": 0.25,
+      "avg_windspeed_kmh": 11.0
+    },
+    "ndvi": {
+      "ndvi": 0.58,
+      "bare_soil_fraction": 0.20,
+      "disturbance_score": 0.30
+    },
+    "gbif": {
+      "species_count": 9,
+      "source": "gbif"
+    },
+    "visitation": {
+      "visitation_ratio": 0.30,
+      "decline_rate_12w": 0.50,
+      "pollination_timing_disruption": 0.20,
+      "flowering_success_rate": 0.70,
+      "avg_visitations_per_hour": 6.0,
+      "expected_visitations_per_hour": 20.0
+    },
+    "_meta": {}
+  },
+  "expected": {
+    "anomaly_count_min": 2,
+    "must_include": [
+      {"factor": "pollination_factor", "severity": "CRITICAL", "variable": "visitation_ratio"},
+      {"factor": "pollination_factor", "severity": "CRITICAL", "variable": "decline_rate_12w"}
+    ],
+    "no_india_terms": [],
+    "india_terms_required": []
+  }
+}

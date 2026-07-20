@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { AnalysisResponse, ZoneSummary } from '../types/api';
+import { API_KEY } from '../api/client';
+
+const STORAGE_KEY = 'selectedZone';
 
 export const FACTOR_META: Record<string, { label: string, weight: number, color: string }> = {
   pesticide_exposure: { label: 'Pesticides', weight: 32, color: '#f43f5e' },
@@ -17,40 +20,24 @@ export function usePolyNexus() {
   const [loading, setLoading] = useState<boolean>(false);
   const [apiHealth, setApiHealth] = useState<boolean>(false);
 
-  useEffect(() => {
-    checkHealth();
-    loadZones();
-  }, []);
-
-  const checkHealth = async () => {
+  const checkHealth = useCallback(async () => {
     try {
       const res = await fetch('/health');
       setApiHealth(res.ok);
     } catch {
       setApiHealth(false);
     }
-  };
+  }, []);
 
-  const loadZones = async () => {
-    try {
-      const res = await fetch('/zones');
-      if (res.ok) {
-        const data = await res.json();
-        setZones(data.zones as ZoneSummary[]);
-      }
-    } catch (e) {
-      console.error('Failed to load zones', e);
-    }
-  };
-
-  const runAnalysis = async (zoneId: string, lat: number, lon: number, name: string) => {
+  const runAnalysis = useCallback(async (zoneId: string, lat: number, lon: number, name: string) => {
     setLoading(true);
     setActiveZoneId(zoneId);
+    localStorage.setItem(STORAGE_KEY, zoneId);
     try {
       const params = new URLSearchParams({ zone_id: zoneId, lat: String(lat), lon: String(lon) });
       const res = await fetch(`/analyse?${params.toString()}`, {
         headers: {
-          'X-API-Key': 'test-api-key-123'
+          'X-API-Key': API_KEY
         }
       });
       if (!res.ok) throw new Error(await res.text());
@@ -59,11 +46,47 @@ export function usePolyNexus() {
       checkHealth();
     } catch (error: any) {
       console.error(error);
-      alert(`Analysis failed: ${error?.message || 'Unknown error'}`);
+      alert('Analysis failed to load. Please try again later.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [checkHealth]);
+
+  const loadZones = useCallback(async () => {
+    try {
+      const res = await fetch('/zones');
+      if (res.ok) {
+        const data = await res.json();
+        const loadedZones = data.zones as ZoneSummary[];
+        setZones(loadedZones);
+
+        const storedId = localStorage.getItem(STORAGE_KEY);
+        const match = loadedZones.find(z => z.zone_id === storedId);
+        if (match) {
+          runAnalysis(match.zone_id, match.lat, match.lon, match.name);
+        } else if (loadedZones.length > 0) {
+          const first = loadedZones[0];
+          runAnalysis(first.zone_id, first.lat, first.lon, first.name);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load zones', e);
+    }
+  }, [runAnalysis]);
+
+  useEffect(() => {
+    checkHealth();
+    loadZones();
+  }, [checkHealth, loadZones]);
+
+  const addCustomZone = useCallback((newZone: ZoneSummary) => {
+    setZones(prev => {
+      // Avoid duplicate custom zone additions
+      if (prev.some(z => z.zone_id === newZone.zone_id)) return prev;
+      return [newZone, ...prev];
+    });
+    runAnalysis(newZone.zone_id, newZone.lat, newZone.lon, newZone.name);
+  }, [runAnalysis]);
 
   return {
     zones,
@@ -73,5 +96,6 @@ export function usePolyNexus() {
     apiHealth,
     runAnalysis,
     setAnalysis,
+    addCustomZone,
   };
 }

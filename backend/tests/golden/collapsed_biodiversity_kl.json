@@ -1,0 +1,48 @@
+{
+  "_description": "Golden fixture: collapsed biodiversity — NDVI=0.12 (critical <0.20), species_count=1 (critical <=2), bare_soil=0.65 (critical >0.55). In Kerala the NDVI warning threshold is raised to 0.45 and critical to 0.30 via agro-zone override.",
+  "zone_id": "IN_KL",
+  "raw": {
+    "pesticide": {
+      "usage_ppm": 2.0,
+      "applications_per_month": 2,
+      "days_since_last_application": 15,
+      "pesticide_type": "pyrethroid"
+    },
+    "soil": {
+      "ph": 6.2,
+      "organic_carbon_g_per_kg": 2.2,
+      "nitrogen_g_per_kg": 1.1
+    },
+    "nasa": {
+      "root_zone_wetness": 0.55
+    },
+    "climate": {
+      "temp_std_c": 5.0,
+      "total_precipitation_mm": 40.0,
+      "drought_index": 0.20,
+      "avg_windspeed_kmh": 8.0
+    },
+    "ndvi": {
+      "ndvi": 0.12,
+      "bare_soil_fraction": 0.65,
+      "disturbance_score": 0.80
+    },
+    "gbif": {
+      "species_count": 1,
+      "source": "gbif"
+    },
+    "visitation": {},
+    "_meta": {}
+  },
+  "expected": {
+    "anomaly_count_min": 4,
+    "must_include": [
+      {"factor": "floral_diversity", "severity": "CRITICAL", "variable": "ndvi"},
+      {"factor": "floral_diversity", "severity": "CRITICAL", "variable": "species_count"},
+      {"factor": "nesting_availability", "severity": "CRITICAL", "variable": "bare_soil_fraction"},
+      {"factor": "nesting_availability", "severity": "CRITICAL", "variable": "disturbance_score"}
+    ],
+    "no_india_terms": ["phacelia", "borage", "hawthorn", "county wildlife trust"],
+    "india_terms_required": ["Tephrosia", "Crotalaria"]
+  }
+}

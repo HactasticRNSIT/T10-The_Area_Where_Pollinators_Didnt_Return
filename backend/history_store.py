@@ -13,17 +13,38 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_DB_PATH = os.environ.get("HISTORY_DB_PATH", str(DATA_DIR / "polynexus_history.db"))
 
+# When False (default), save_run stores only the summary scalar columns and skips
+# json.dumps(result) — which is a GIL-holding operation on the large result dict.
+# Set POLYNEXUS_HISTORY_RAW=1 in the environment to enable full blob storage
+# (useful for diagnostics, never needed in normal production).
+_STORE_RAW_JSON: bool = os.environ.get("POLYNEXUS_HISTORY_RAW", "0") == "1"
+
+# Guard: DDL runs exactly once per process per db path, never on the hot path.
+_initialized: set[str] = set()
+
+
 def _get_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
-    """Returns a SQLite connection with WAL mode enabled for concurrency."""
+    """Returns a SQLite connection. WAL mode is set once at init_db time."""
     conn = sqlite3.connect(db_path, timeout=10.0)
     conn.row_factory = sqlite3.Row
-    # Enable Write-Ahead Logging for better concurrent read/write support
-    conn.execute("PRAGMA journal_mode=WAL;")
     return conn
+
+
+def _ensure_initialized(db_path: str = DEFAULT_DB_PATH) -> None:
+    """Call init_db at most once per process. Safe to call on every request."""
+    if db_path not in _initialized:
+        run_migrations(db_path)
+        _initialized.add(db_path)
 
 def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
     """Initialise the history store schema."""
     with _get_connection(db_path) as conn:
+        # WAL mode: set once here — persists on the file, not repeated per-connection.
+        conn.execute("PRAGMA journal_mode=WAL;")
+        # Raise checkpoint threshold from 1000 pages (default ~4MB) to 10000 pages
+        # (~40MB) so WAL auto-checkpoints — which briefly serialize all new connections —
+        # happen far less frequently under concurrent write load.
+        conn.execute("PRAGMA wal_autocheckpoint=10000;")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS zone_runs (
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,7 +90,7 @@ def run_migrations(db_path: str = DEFAULT_DB_PATH) -> None:
 def save_run(zone_id: str, result: dict[str, Any], db_path: str = DEFAULT_DB_PATH) -> None:
     """Save an analysis result to the history store."""
     try:
-        init_db(db_path)
+        _ensure_initialized(db_path)
         now_utc = datetime.now(timezone.utc).isoformat()
         
         # Extract metadata from result
@@ -90,7 +111,11 @@ def save_run(zone_id: str, result: dict[str, Any], db_path: str = DEFAULT_DB_PAT
         if "visitation" in result:
             visitation_source = result["visitation"].get("source")
             
-        raw_json = json.dumps(result)
+        # Serialise the full result only when explicitly requested.
+        # json.dumps(result) on the large analysis output dict is a GIL-holding
+        # operation (~30-80ms) that blocks the event loop while running in a
+        # background thread; skip it by default.
+        raw_json = json.dumps(result) if _STORE_RAW_JSON else None
         
         with _get_connection(db_path) as conn:
             conn.execute("""
@@ -233,5 +258,6 @@ def get_seasonal_threshold_overrides(
 
     return overrides
 
-# Run migrations on import
+# Run migrations exactly once on import (populates _initialized for the default path).
 run_migrations()
+_initialized.add(DEFAULT_DB_PATH)

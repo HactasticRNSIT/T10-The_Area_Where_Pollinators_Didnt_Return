@@ -1,0 +1,45 @@
+{
+  "_description": "Golden fixture: European zone — no localisation should be applied. Checks that the raw UK recommended-action strings are NOT replaced by Indian crop names when zone_id does NOT start with IN_.",
+  "zone_id": "EU_FR_01",
+  "raw": {
+    "pesticide": {
+      "usage_ppm": 18.0,
+      "applications_per_month": 7,
+      "days_since_last_application": 3,
+      "pesticide_type": "neonicotinoid"
+    },
+    "soil": {
+      "ph": 7.0,
+      "organic_carbon_g_per_kg": 2.5,
+      "nitrogen_g_per_kg": 1.5
+    },
+    "nasa": {
+      "root_zone_wetness": 0.50
+    },
+    "climate": {
+      "temp_std_c": 6.0,
+      "total_precipitation_mm": 35.0,
+      "drought_index": 0.20,
+      "avg_windspeed_kmh": 10.0
+    },
+    "ndvi": {
+      "ndvi": 0.55,
+      "bare_soil_fraction": 0.20,
+      "disturbance_score": 0.20
+    },
+    "gbif": {
+      "species_count": 10,
+      "source": "gbif"
+    },
+    "visitation": {},
+    "_meta": {}
+  },
+  "expected": {
+    "anomaly_count_min": 1,
+    "must_include": [
+      {"factor": "pesticide_exposure", "severity": "CRITICAL", "variable": "usage_ppm"}
+    ],
+    "india_terms_must_not_appear": ["dhaincha", "sunn hemp", "Trichogramma", "Moringa", "karanj"],
+    "uk_terms_required": ["pyrethrin", "phacelia", "borage"]
+  }
+}

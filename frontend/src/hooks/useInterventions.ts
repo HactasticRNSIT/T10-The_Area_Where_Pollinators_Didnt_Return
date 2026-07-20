@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 import { useCachedFetch } from './useCachedFetch';
 import type { LoggedIntervention } from '../types/api';
+import { API_KEY } from '../api/client';
 
-const API_HEADERS = { 'Content-Type': 'application/json', 'X-API-Key': 'test-api-key-123' };
+const API_HEADERS = { 'Content-Type': 'application/json', 'X-API-Key': API_KEY };
 
 export function useInterventions(zoneId?: string) {
   const key = zoneId ? `interventions:${zoneId}` : null;

@@ -3,22 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PolyNexus Pollinator Dashboard</title>
+  <title>PolyNexus | Pollinator Intelligence</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=premium-2" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v=premium-v4" />
 </head>
 <body class="animate-on-load">
+  <!-- Dynamic Ambient Background -->
   <div class="ambient-layer" aria-hidden="true">
-    <svg class="hex-field" viewBox="0 0 900 520" preserveAspectRatio="none">
-      <defs>
-        <pattern id="hexPattern" width="54" height="47" patternUnits="userSpaceOnUse">
-          <path d="M27 1 L53 15 L53 32 L27 46 L1 32 L1 15 Z" fill="none" stroke="currentColor" stroke-width="1" />
-        </pattern>
-      </defs>
-      <rect width="900" height="520" fill="url(#hexPattern)" />
-    </svg>
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="noise-overlay"></div>
   </div>
 
   <nav class="nav-bar">
@@ -27,10 +23,10 @@
         <span></span><span></span><span></span>
       </button>
       <div class="brand">
-        <div class="brand-mark">PX</div>
-        <div>
+        <img src="/static/logo.png" alt="PolyNexus Logo" class="brand-logo" />
+        <div class="brand-text">
           <h1>PolyNexus</h1>
-          <p>Pollinator intelligence</p>
+          <p>Pollinator Intelligence</p>
         </div>
       </div>
     </div>
@@ -42,7 +38,8 @@
 
     <div class="nav-right">
       <div id="api-status" class="status-pill">Checking API...</div>
-      <button id="download-report-btn" class="nav-action" type="button" disabled>Report</button>
+      <button id="export-calendar-btn" class="nav-action" type="button" disabled>Export Calendar</button>
+      <button id="download-report-btn" class="nav-action ghost" type="button" disabled>Download Report</button>
       <button id="print-report-btn" class="nav-action ghost" type="button" disabled>Print</button>
     </div>
   </nav>
@@ -53,105 +50,136 @@
     <div class="drawer-head">
       <div>
         <p class="eyebrow">Analysis Controls</p>
-        <h2>Choose a Zone</h2>
+        <h2>Select Zone</h2>
       </div>
-      <button id="drawer-close" class="drawer-close" type="button" aria-label="Close drawer">x</button>
+      <button id="drawer-close" class="drawer-close" type="button" aria-label="Close drawer">&times;</button>
     </div>
 
     <section class="side-section">
       <h3>Preset Zones</h3>
       <div id="zone-list" class="zone-list"></div>
+      
+      <div class="compare-mode-toggle" style="margin-top: 20px; display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="compare-mode-checkbox" />
+        <label for="compare-mode-checkbox" style="color: #fff; font-size: 0.9rem;">Enable Compare Mode</label>
+      </div>
+      
+      <div id="compare-list-container" class="hidden" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+        <p class="eyebrow">Selected for Comparison</p>
+        <ul id="compare-selected-list" style="list-style: none; padding: 0; margin-bottom: 16px; color: var(--text-dim); font-size: 0.85rem;"></ul>
+        <button id="run-compare-btn" class="btn-glow" style="width: 100%;" disabled>Run Comparison</button>
+      </div>
     </section>
 
     <section class="side-section">
-      <h3>Custom Zone</h3>
+      <h3>Custom Coordinates</h3>
       <form id="custom-zone-form" class="zone-form">
-        <label for="custom-zone-id">Zone ID</label>
-        <input id="custom-zone-id" type="text" placeholder="MY_FARM" />
-        <label for="custom-lat">Latitude</label>
-        <input id="custom-lat" type="number" step="0.0001" min="-90" max="90" placeholder="15.4589" />
-        <label for="custom-lon">Longitude</label>
-        <input id="custom-lon" type="number" step="0.0001" min="-180" max="180" placeholder="75.0078" />
-        <button id="analyse-btn" type="submit">Analyse Zone</button>
+        <div class="input-group">
+          <label for="custom-zone-id">Zone ID</label>
+          <input id="custom-zone-id" type="text" placeholder="e.g. MY_FARM_01" />
+        </div>
+        <div class="input-row">
+          <div class="input-group">
+            <label for="custom-lat">Latitude</label>
+            <input id="custom-lat" type="number" step="0.0001" min="-90" max="90" placeholder="15.4589" />
+          </div>
+          <div class="input-group">
+            <label for="custom-lon">Longitude</label>
+            <input id="custom-lon" type="number" step="0.0001" min="-180" max="180" placeholder="75.0078" />
+          </div>
+        </div>
+        <button id="analyse-btn" class="btn-glow" type="submit">Analyse Zone</button>
       </form>
     </section>
   </aside>
 
   <main class="shell">
+    <!-- Hero Banner -->
     <header class="hero-section">
-      <div class="hero-copy">
+      <div class="hero-content">
         <p class="eyebrow">Selected Zone</p>
         <h2 id="zone-title">No zone selected</h2>
-        <p id="zone-meta" class="muted">Open the zone drawer or search a location to begin.</p>
+        <p id="zone-meta" class="muted">Open the zone drawer or search a location to begin analysis.</p>
         <div class="hero-pills">
           <span class="stat-pill">Realtime source aware</span>
           <span class="stat-pill">Decision grade ready</span>
-          <span class="stat-pill">Farmer report export</span>
+          <span class="stat-pill">High Precision Model</span>
         </div>
       </div>
 
-      <div class="hero-ring-card">
-        <svg class="metric-ring" viewBox="0 0 160 160" role="img" aria-label="Activity score ring">
-          <circle class="ring-track" cx="80" cy="80" r="64"></circle>
-          <circle id="activity-ring" class="ring-progress" cx="80" cy="80" r="64"></circle>
-        </svg>
-        <div class="ring-value">
-          <strong id="activity-score">--</strong>
-          <span id="activity-label">--</span>
+      <div class="hero-metrics">
+        <div class="hero-ring-card">
+          <svg class="metric-ring" viewBox="0 0 160 160" role="img" aria-label="Activity score ring">
+            <circle class="ring-track" cx="80" cy="80" r="70"></circle>
+            <circle id="activity-ring" class="ring-progress" cx="80" cy="80" r="70"></circle>
+          </svg>
+          <div class="ring-value">
+            <strong><span id="activity-score">--</span><span id="activity-score-margin" style="font-size: 0.5em; color: var(--text-dim); margin-left: 2px;"></span></strong>
+            <span id="activity-label">--</span>
+          </div>
         </div>
-      </div>
 
-      <div class="hero-kpis">
-        <div class="kpi">
-          <span>Stress</span>
-          <strong id="stress-index">--</strong>
-          <em id="stress-label">index</em>
-        </div>
-        <div class="kpi">
-          <span>Habitat</span>
-          <strong id="habitat-score">--</strong>
-          <em>suitability</em>
-        </div>
-        <div class="kpi">
-          <span>Simulator</span>
-          <strong id="simulation-gain">--</strong>
-          <em>projected gain</em>
+        <div class="hero-kpis">
+          <div class="kpi-card">
+            <div class="kpi-icon">🌪️</div>
+            <div class="kpi-data">
+              <span>Stress</span>
+              <div><strong id="stress-index">--</strong> <em id="stress-label">index</em></div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon">🌿</div>
+            <div class="kpi-data">
+              <span>Habitat</span>
+              <div><strong id="habitat-score">--</strong> <em>suitability</em></div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon">📈</div>
+            <div class="kpi-data">
+              <span>Simulator</span>
+              <div><strong id="simulation-gain">--</strong> <em>proj. gain</em></div>
+            </div>
+          </div>
         </div>
       </div>
     </header>
 
+    <!-- Factor Drivers -->
     <section class="factor-section">
       <div class="section-head">
-        <div>
-          <p class="eyebrow">Drivers</p>
-          <h3>Factor Stress Breakdown</h3>
-        </div>
+        <p class="eyebrow">Ecosystem Drivers</p>
+        <h3>Factor Stress Breakdown</h3>
       </div>
       <div class="factor-grid-compact" id="factor-grid"></div>
     </section>
 
+    <!-- Bento Box Layout -->
     <div class="dashboard-grid">
-      <article class="panel panel-accent insight-panel">
+      <!-- AI Insights -->
+      <article class="bento-panel insight-panel">
         <div class="panel-head">
           <h3>Pollination &amp; Fertility Insights</h3>
-          <span id="insight-source" class="tag">--</span>
+          <span id="insight-source" class="tag glow-tag">--</span>
         </div>
         <div id="ai-content" class="scroll-area readable">
           <p class="empty">Insights will appear after analysis.</p>
         </div>
       </article>
 
-      <article class="panel panel-accent decision-panel">
+      <!-- Decision Brief -->
+      <article class="bento-panel decision-panel">
         <div class="panel-head">
           <h3>Decision Brief</h3>
           <span id="decision-grade" class="tag">--</span>
         </div>
-        <div id="decision-brief" class="scroll-area decision-brief">
+        <div id="decision-brief" class="scroll-area readable">
           <p class="empty">Decision support will appear after analysis.</p>
         </div>
       </article>
 
-      <article class="panel panel-accent simulator-panel">
+      <!-- Intervention Simulator -->
+      <article class="bento-panel simulator-panel">
         <div class="panel-head">
           <h3>Intervention Simulator</h3>
           <span id="sim-status" class="tag">waiting</span>
@@ -161,7 +189,8 @@
         </div>
       </article>
 
-      <article class="panel panel-accent pollination-card">
+      <!-- Pollination Trends -->
+      <article class="bento-panel pollination-panel">
         <div class="panel-head">
           <h3>Pollination Trends</h3>
           <span id="pollination-source" class="tag">waiting</span>
@@ -171,28 +200,40 @@
         </div>
       </article>
 
-      <article class="panel panel-accent crop-panel">
+      <!-- Crop Risk -->
+      <article class="bento-panel crop-panel">
         <div class="panel-head">
           <h3>Crop Risk Assessment</h3>
           <span id="crop-count" class="tag">0 crops</span>
         </div>
         <div class="scroll-area table-wrap">
-          <table>
+          <table class="data-table">
             <thead>
               <tr>
                 <th>Crop</th>
-                <th>Dependency</th>
-                <th>Risk</th>
+                <th>Dep.</th>
+                <th>Risk Lvl</th>
+                <th>Value at Risk</th>
               </tr>
             </thead>
-            <tbody id="crop-tbody">
-              <tr><td colspan="3" class="empty">Run analysis to view crop risk.</td></tr>
+            <tbody id="crop-risk-body">
+              <tr><td colspan="4" class="empty text-center">Run analysis to view crop risk.</td></tr>
             </tbody>
           </table>
         </div>
       </article>
 
-      <article class="panel panel-accent anomaly-panel">
+      <section class="glass-panel" style="animation-delay: 200ms; grid-column: span 1;">
+        <div class="panel-header">
+          <h2>Phenology Calendar</h2>
+        </div>
+        <div class="scroll-area" id="phenology-calendar-container" style="padding: 12px;">
+          <p class="empty text-center" style="font-size: 0.85rem; color: var(--text-dim);">Run analysis to view flowering windows.</p>
+        </div>
+      </section>
+
+      <!-- Anomaly Feed -->
+      <article class="bento-panel anomaly-panel">
         <div class="panel-head">
           <h3>Anomaly Feed</h3>
           <span id="anomaly-count" class="tag">0 alerts</span>
@@ -201,11 +242,42 @@
           <p class="empty">No alerts yet.</p>
         </div>
       </article>
+
+      <!-- 7. Field Observations -->
+      <div id="panel-observations" class="bento-panel insight-panel panel">
+        <div class="panel-head">
+          <div>
+            <h3>Field Log</h3>
+            <p class="muted" style="font-size: 0.85rem;">Observations & Interventions</p>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <div style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <h4 style="font-family: var(--font-display); font-size: 1rem; color: #fff; margin-bottom: 12px;">Log New</h4>
+            <form id="observation-form" style="display: flex; flex-direction: column; gap: 10px;">
+              <input type="text" id="obs-species" placeholder="Species (Optional)" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; color: #fff; font-size: 0.85rem;" />
+              <div style="display: flex; gap: 10px;">
+                <input type="number" id="obs-species-count" placeholder="Species Count" min="0" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; color: #fff; font-size: 0.85rem;" />
+                <input type="number" id="obs-pollinator-count" placeholder="Pollinator Count" min="0" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; color: #fff; font-size: 0.85rem;" />
+              </div>
+              <textarea id="obs-notes" placeholder="Notes..." rows="2" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; color: #fff; font-size: 0.85rem; font-family: var(--font); resize: vertical;"></textarea>
+              <button type="submit" class="btn-glow" style="padding: 8px; font-size: 0.85rem;">Submit Log</button>
+            </form>
+          </div>
+          <div class="scroll-area">
+            <h4 style="font-family: var(--font-display); font-size: 1rem; color: #fff; margin-bottom: 12px;">Recent Logs</h4>
+            <div id="observation-feed" style="display: flex; flex-direction: column; gap: 10px;">
+              <p class="empty" style="padding: 0; text-align: left;">Run analysis to view logs.</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
+    <!-- Footer -->
     <footer class="footer">
       <section class="method-note" id="method-note">
-        <strong>Model note</strong>
+        <strong>Model Note: </strong>
         <span>Scores are estimated decision-support bands from mixed live, modelled, and surrogate inputs; they are not calibrated farm-level sensor measurements.</span>
       </section>
     </footer>
@@ -213,10 +285,65 @@
 
   <script src="/static/app.js"></script>
 
-  <div class="loading-overlay" aria-hidden="true">
-    <div class="spinner"></div>
-    <div class="loading-text">Analysing ecosystem data...</div>
-    <div class="loading-subtext">Fetching live satellite and climate signals</div>
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="spinner-ring"></div>
+    <div class="loading-text" id="loading-text">Analyzing Zone...</div>
+    <div class="loading-subtext">PolyNexus AI Core</div>
   </div>
+
+  <!-- Chat Widget -->
+  <button id="chat-toggle" class="chat-toggle" aria-label="Open AI Chat">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+  </button>
+  
+  <div id="chat-window" class="chat-window hidden">
+    <div class="chat-header">
+      <div class="chat-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6v6l4 2"/></svg>
+        <span>PolyNexus Assistant</span>
+      </div>
+      <button id="chat-close" class="chat-close">&times;</button>
+    </div>
+    <div id="chat-messages" class="chat-messages">
+      <div class="chat-message assistant">
+        <div class="message-content">Hello! I am your PolyNexus AI assistant. Ask me anything about the current zone's analysis, field conditions, or interventions.</div>
+      </div>
+    </div>
+    <div class="chat-input-area">
+      <input type="text" id="chat-input" placeholder="Ask a question..." autocomplete="off" />
+      <button id="chat-send" class="btn-glow" disabled>Send</button>
+    </div>
+  </div>
+
+  <!-- Compare Modal -->
+  <div id="compare-modal-overlay" class="drawer-overlay"></div>
+  <div id="compare-modal" class="chat-window hidden" style="width: 800px; max-width: 90vw; height: 80vh; bottom: 10vh; right: auto; left: 50%; transform: translateX(-50%) scale(0.9);">
+    <div class="chat-header">
+      <div class="chat-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <span>Zone Comparison Results</span>
+      </div>
+      <button id="compare-close" class="chat-close">&times;</button>
+    </div>
+    <div id="compare-content" class="chat-messages" style="display: block;">
+      <div class="table-wrap">
+        <table style="width: 100%; text-align: left;">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Zone ID</th>
+              <th>Activity Score</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="compare-table-body">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=premium-v4"></script>
 </body>
 </html>

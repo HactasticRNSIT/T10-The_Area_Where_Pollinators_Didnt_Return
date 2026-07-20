@@ -1,11 +1,25 @@
 """
 NDVI Integration Verification Script
 Run this after deploying the Sentinel Hub integration to confirm it's working.
+
+All tests in this file make real network calls to Copernicus / Agromonitoring
+and require COPERNICUS_CLIENT_ID / COPERNICUS_CLIENT_SECRET in the environment.
+They are excluded from the default pytest run via the `integration` marker
+(see pytest.ini: addopts = -m "not integration").
+
+Run explicitly with:
+    pytest backend/test_ndvi.py -m integration -v
 """
 
 import os
 import sys
 from datetime import datetime
+
+import pytest
+
+# Mark every test in this module as an integration test so `pytest.ini`'s
+# `addopts = -m "not integration"` filter excludes them from the default run.
+pytestmark = pytest.mark.integration
 
 # Load env variables since test might run outside uvicorn
 from dotenv import load_dotenv
@@ -25,7 +39,8 @@ def test_credentials_present():
 def test_oauth_token():
     token = _get_copernicus_token()
     assert token, "Failed to retrieve OAuth token"
-    print(f"[OK] OAuth token retrieved: {token[:10]}...")
+    # Do NOT print any token fragment — even a 10-char prefix ends up in CI logs.
+    print("[OK] OAuth token retrieved successfully")
 
 # --- Test 3: Real NDVI fetch for IN_HP_01 (Shimla orchard) ---
 def test_real_ndvi_fetch():

@@ -1,0 +1,45 @@
+{
+  "_description": "Golden fixture: climate and wind stress — avg_windspeed_kmh=28 (critical >25), drought_index=0.72 (critical >0.70 global / >0.80 IN override — so WARNING for IN_MH). Tests wind CRITICAL + drought WARNING for Maharashtra orange zone.",
+  "zone_id": "IN_MH",
+  "raw": {
+    "pesticide": {
+      "usage_ppm": 3.0,
+      "applications_per_month": 2,
+      "days_since_last_application": 12,
+      "pesticide_type": "pyrethroid"
+    },
+    "soil": {
+      "ph": 6.8,
+      "organic_carbon_g_per_kg": 2.2,
+      "nitrogen_g_per_kg": 1.3
+    },
+    "nasa": {
+      "root_zone_wetness": 0.42
+    },
+    "climate": {
+      "temp_std_c": 10.0,
+      "total_precipitation_mm": 22.0,
+      "drought_index": 0.72,
+      "avg_windspeed_kmh": 28.0
+    },
+    "ndvi": {
+      "ndvi": 0.48,
+      "bare_soil_fraction": 0.22,
+      "disturbance_score": 0.28
+    },
+    "gbif": {
+      "species_count": 9,
+      "source": "gbif"
+    },
+    "visitation": {},
+    "_meta": {}
+  },
+  "expected": {
+    "anomaly_count_min": 1,
+    "must_include": [
+      {"factor": "climate_variability", "severity": "CRITICAL", "variable": "avg_windspeed_kmh"}
+    ],
+    "no_india_terms": ["phacelia", "borage"],
+    "india_terms_required": ["Moringa", "karanj"]
+  }
+}

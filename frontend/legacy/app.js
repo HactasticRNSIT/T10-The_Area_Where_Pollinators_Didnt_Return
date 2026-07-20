@@ -13,6 +13,8 @@ let activeZoneId = '';
 let latestAnalysis = null;
 let latestDisplayName = '';
 let loadingMessageTimer = null;
+let compareMode = false;
+let selectedForCompare = [];
 
 const LOADING_MESSAGES = [
   'Fetching live satellite and climate signals',
@@ -66,15 +68,215 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('custom-zone-form').addEventListener('submit', handleCustomSubmit);
   setupLocationSearch();
   document.getElementById('download-report-btn').addEventListener('click', downloadFarmerReport);
+  document.getElementById('export-calendar-btn').addEventListener('click', downloadCalendar);
   document.getElementById('print-report-btn').addEventListener('click', printFarmerReport);
   setupPanelAnimations();
+  setupChatWidget();
+  setupCompareMode();
+  setupObservationForm();
 });
 
+let chatHistory = [];
+
+function setupChatWidget() {
+  const toggle = document.getElementById('chat-toggle');
+  const win = document.getElementById('chat-window');
+  const close = document.getElementById('chat-close');
+  const input = document.getElementById('chat-input');
+  const send = document.getElementById('chat-send');
+  const messages = document.getElementById('chat-messages');
+
+  toggle.addEventListener('click', () => {
+    win.classList.remove('hidden');
+    input.focus();
+  });
+
+  close.addEventListener('click', () => {
+    win.classList.add('hidden');
+  });
+
+  input.addEventListener('input', () => {
+    send.disabled = input.value.trim() === '';
+  });
+
+  input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !send.disabled) send.click();
+  });
+
+  send.addEventListener('click', async () => {
+    const text = input.value.trim();
+    if (!text) return;
+    
+    // Add user message to UI
+    appendChatMessage('user', text);
+    input.value = '';
+    send.disabled = true;
+    
+    // Create payload
+    const payload = {
+      message: text,
+      history: chatHistory
+    };
+    
+    // Add to history
+    chatHistory.push({ role: 'user', content: text });
+    
+    try {
+      // Show typing indicator or just disable
+      input.disabled = true;
+      
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-API-Key': 'test-api-key-123'
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!res.ok) throw new Error('Chat failed');
+      const data = await res.json();
+      
+      appendChatMessage('assistant', data.reply);
+      chatHistory.push({ role: 'assistant', content: data.reply });
+      
+    } catch (err) {
+      console.error(err);
+      appendChatMessage('assistant', "Sorry, I'm having trouble connecting right now.");
+    } finally {
+      input.disabled = false;
+      input.focus();
+    }
+  });
+
+  function appendChatMessage(role, content) {
+    const msg = document.createElement('div');
+    msg.className = `chat-message ${role}`;
+    msg.innerHTML = `<div class="message-content">${escapeHtml(content)}</div>`;
+    messages.appendChild(msg);
+    messages.scrollTop = messages.scrollHeight;
+  }
+}
+
+function setupCompareMode() {
+  const checkbox = document.getElementById('compare-mode-checkbox');
+  const container = document.getElementById('compare-list-container');
+  const list = document.getElementById('compare-selected-list');
+  const btn = document.getElementById('run-compare-btn');
+  const modal = document.getElementById('compare-modal');
+  const modalOverlay = document.getElementById('compare-modal-overlay');
+  const modalClose = document.getElementById('compare-close');
+
+  checkbox.addEventListener('change', (e) => {
+    compareMode = e.target.checked;
+    if (compareMode) {
+      container.classList.remove('hidden');
+    } else {
+      container.classList.add('hidden');
+      selectedForCompare = [];
+      updateCompareListUI();
+    }
+  });
+
+  btn.addEventListener('click', async () => {
+    if (selectedForCompare.length === 0) return;
+    
+    // Close drawer
+    document.body.classList.remove('drawer-open');
+    
+    // Show modal and loading state
+    modal.classList.remove('hidden');
+    modalOverlay.classList.remove('hidden');
+    document.getElementById('compare-table-body').innerHTML = '<tr><td colspan="4">Running comparison...</td></tr>';
+    
+    try {
+      const res = await fetch('/compare', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'test-api-key-123'
+        },
+        body: JSON.stringify({ zone_ids: selectedForCompare.map(z => z.zone_id) })
+      });
+      if (!res.ok) throw new Error('Compare failed');
+      const data = await res.json();
+      
+      const tbody = document.getElementById('compare-table-body');
+      tbody.innerHTML = data.zones.map((z, idx) => `
+        <tr>
+          <td>#${idx + 1}</td>
+          <td><strong>${escapeHtml(z.zone_id)}</strong></td>
+          <td>${z.status === 'ok' ? z.activity_score : '-'}</td>
+          <td><span class="status-pill ${z.status === 'ok' ? 'status-online' : 'status-offline'}">${escapeHtml(z.status)}</span></td>
+        </tr>
+      `).join('');
+      
+    } catch(err) {
+      document.getElementById('compare-table-body').innerHTML = `<tr><td colspan="4" style="color:var(--red)">${escapeHtml(err.message)}</td></tr>`;
+    }
+  });
+
+  const closeModal = () => {
+    modal.classList.add('hidden');
+    modalOverlay.classList.add('hidden');
+  };
+  modalClose.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', closeModal);
+}
+
+function updateCompareListUI() {
+  const list = document.getElementById('compare-selected-list');
+  const btn = document.getElementById('run-compare-btn');
+  list.innerHTML = selectedForCompare.map(z => `<li>${escapeHtml(z.zone_id)}</li>`).join('');
+  btn.disabled = selectedForCompare.length === 0;
+}
+
+function setupObservationForm() {
+  const form = document.getElementById('observation-form');
+  if (!form) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!activeZoneId) {
+      alert('Select a zone first.');
+      return;
+    }
+    
+    const species = document.getElementById('obs-species').value;
+    const speciesCount = document.getElementById('obs-species-count').value;
+    const polCount = document.getElementById('obs-pollinator-count').value;
+    const notes = document.getElementById('obs-notes').value;
+    
+    const formData = new FormData();
+    if (species) formData.append('species_name', species);
+    if (speciesCount) formData.append('species_count', speciesCount);
+    if (polCount) formData.append('pollinator_count', polCount);
+    if (notes) formData.append('notes', notes);
+    
+    try {
+      const res = await fetch(`/zones/${activeZoneId}/observations`, {
+        method: 'POST',
+        headers: { 'X-API-Key': 'test-api-key-123' },
+        body: formData
+      });
+      if (!res.ok) throw new Error('Submission failed');
+      
+      form.reset();
+      
+      // Refresh observations
+      const obsRes = await fetch(`/zones/${activeZoneId}/observations`, {
+        headers: { 'X-API-Key': 'test-api-key-123' }
+      });
+      if (obsRes.ok) {
+        const obsData = await obsRes.json();
+        renderObservations(obsData.observations);
+      }
+    } catch(err) {
+      alert(err.message);
+    }
+  });
+}
+
 const STATE_MAP = {
-  'Andaman and Nicobar Islands': 'IN_AN',
-  'Andhra Pradesh': 'IN_AP',
-  'Arunachal Pradesh': 'IN_AR',
-  'Assam': 'IN_AS',
   'Bihar': 'IN_BR',
   'Chandigarh': 'IN_CH',
   'Chhattisgarh': 'IN_CT',
@@ -187,38 +389,76 @@ function setupLocationSearch() {
 
 async function fetchSuggestions(query) {
   const results = document.getElementById('search-results');
-  try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=in&limit=5&addressdetails=1`);
-    if (!res.ok) throw new Error('Search failed');
-    const data = await res.json();
-    if (data.length === 0) {
-      results.innerHTML = '<p class="empty">No results found.</p>';
-    } else {
-      results.innerHTML = data.map(item => `
-        <div class="search-item" data-lat="${item.lat}" data-lon="${item.lon}" data-name="${item.display_name}" data-state="${item.address.state || ''}">
-          <strong>${escapeHtml(item.display_name.split(',')[0])}</strong>
-          <small>${escapeHtml(item.display_name.split(',').slice(1).join(','))}</small>
+  results.innerHTML = '';
+  const q = query.toLowerCase();
+  
+  const localZones = Array.from(document.querySelectorAll('.zone-item'));
+  const matchingZones = localZones.filter(btn => {
+    return btn.textContent.toLowerCase().includes(q) || btn.dataset.zoneId.toLowerCase().includes(q);
+  });
+  
+  let html = '';
+  if (matchingZones.length > 0) {
+    html += matchingZones.map(btn => {
+      const strong = btn.querySelector('strong')?.textContent || '';
+      const small = btn.querySelector('small')?.textContent || '';
+      return `
+        <div class="search-item local-zone" data-zone-id="${btn.dataset.zoneId}">
+          <strong>${escapeHtml(strong)}</strong>
+          <small>${escapeHtml(small)} (Saved Zone)</small>
         </div>
-      `).join('');
-      
-      results.querySelectorAll('.search-item').forEach(el => {
-        el.addEventListener('click', () => {
-          const lat = parseFloat(el.dataset.lat);
-          const lon = parseFloat(el.dataset.lon);
-          const name = el.dataset.name;
-          const state = el.dataset.state;
-          const stateCode = STATE_MAP[state] || 'IN';
-          const zoneId = `${stateCode}_SEARCH_${Date.now()}`;
-          runAnalysis(zoneId, lat, lon, name);
-          results.classList.add('hidden');
-          document.getElementById('location-search').value = '';
-        });
-      });
+      `;
+    }).join('');
+  }
+
+  try {
+    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&format=json`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.results && data.results.length > 0) {
+        html += data.results.map(item => `
+          <div class="search-item open-meteo" data-lat="${item.latitude}" data-lon="${item.longitude}" data-name="${item.name}" data-state="${item.admin1 || ''}">
+            <strong>${escapeHtml(item.name)}</strong>
+            <small>${escapeHtml(item.admin1 ? item.admin1 + ', ' + item.country : item.country)}</small>
+          </div>
+        `).join('');
+      }
     }
-    results.classList.remove('hidden');
   } catch (err) {
     console.error(err);
   }
+
+  if (!html) {
+    results.innerHTML = '<p class="empty">No results found.</p>';
+  } else {
+    results.innerHTML = html;
+    
+    results.querySelectorAll('.search-item.local-zone').forEach(el => {
+      el.addEventListener('click', () => {
+        const zoneId = el.dataset.zoneId;
+        const btn = document.querySelector(`.zone-item[data-zone-id="${zoneId}"]`);
+        if (btn) btn.click();
+        results.classList.add('hidden');
+        document.getElementById('location-search').value = '';
+      });
+    });
+    
+    results.querySelectorAll('.search-item.open-meteo').forEach(el => {
+      el.addEventListener('click', () => {
+        const lat = parseFloat(el.dataset.lat);
+        const lon = parseFloat(el.dataset.lon);
+        const name = el.dataset.name;
+        const state = el.dataset.state;
+        const stateCode = STATE_MAP[state] || 'IN';
+        const zoneId = `${stateCode}_SEARCH_${Date.now()}`;
+        runAnalysis(zoneId, lat, lon, name);
+        results.classList.add('hidden');
+        document.getElementById('location-search').value = '';
+      });
+    });
+  }
+  
+  results.classList.remove('hidden');
 }
 
 async function checkHealth() {
@@ -256,8 +496,15 @@ async function loadZones() {
         </span>
       `;
       button.addEventListener('click', () => {
-        runAnalysis(zone.zone_id, zone.lat, zone.lon, zone.name);
-        document.body.classList.remove('drawer-open');
+        if (compareMode) {
+          if (!selectedForCompare.find(z => z.zone_id === zone.zone_id)) {
+            selectedForCompare.push(zone);
+            updateCompareListUI();
+          }
+        } else {
+          runAnalysis(zone.zone_id, zone.lat, zone.lon, zone.name);
+          document.body.classList.remove('drawer-open');
+        }
       });
       list.appendChild(button);
     });
@@ -279,17 +526,32 @@ function handleCustomSubmit(event) {
   document.body.classList.remove('drawer-open');
 }
 
+
 async function runAnalysis(zoneId, lat, lon, name) {
   activeZoneId = zoneId;
   setLoading(true);
   markActiveZone(zoneId);
   try {
     const params = new URLSearchParams({ zone_id: zoneId, lat: String(lat), lon: String(lon) });
-    const res = await fetch(`/analyse?${params.toString()}`);
+    const res = await fetch(`/analyse?${params.toString()}`, {
+      headers: { 'X-API-Key': 'test-api-key-123' }
+    });
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
     latestAnalysis = data;
-    latestDisplayName = name || '';
+    latestDisplayName = name;
+    
+    // Fetch observations
+    try {
+      const obsRes = await fetch(`/zones/${zoneId}/observations`, {
+        headers: { 'X-API-Key': 'test-api-key-123' }
+      });
+      if (obsRes.ok) {
+        const obsData = await obsRes.json();
+        renderObservations(obsData.observations);
+      }
+    } catch(e) { console.error('Failed to load observations', e); }
+
     renderDashboard(data, name);
     checkHealth();
   } catch (error) {
@@ -338,9 +600,22 @@ function renderDashboard(data, displayName) {
   document.getElementById('zone-title').textContent = titleStr;
   document.getElementById('zone-meta').textContent =
     `Lat ${Number(data.latitude).toFixed(4)} | Lon ${Number(data.longitude).toFixed(4)} | ${formatDate(data.analysed_at)}`;
+  
+  // Ecosystem Activity
   animateValue(document.getElementById('activity-score'), 0, Number(data.activity_score), 1000);
+  const marginSpan = document.getElementById('activity-score-margin');
+  if (marginSpan) {
+    if (data.activity_score_margin != null) {
+      marginSpan.textContent = `\u00B1${data.activity_score_margin}`;
+      marginSpan.title = `Range: ${data.activity_score_range[0]} - ${data.activity_score_range[1]}`;
+    } else {
+      marginSpan.textContent = '';
+    }
+  }
+
   animateRing(Number(data.activity_score));
   document.getElementById('activity-label').textContent = data.activity_label;
+  
   const stressVal = data._meta?.overall_stress == null ? 0 : Math.round(Number(data._meta.overall_stress) * 100);
   if (data._meta?.overall_stress == null) {
     document.getElementById('stress-index').textContent = data.pollination_stress_index;
@@ -351,7 +626,8 @@ function renderDashboard(data, displayName) {
   animateValue(document.getElementById('habitat-score'), 0, Number(data.habitat_suitability_score), 1000);
 
   renderFactors(data._meta?.raw_factor_stress || {});
-  renderCropTable(data.crop_risk || {}, data.crop_dependency || {});
+  renderCropTable(data.crop_risk || {}, data.crop_dependency || {}, data.crop_risk_details || {});
+  renderPhenologyCalendar(data.phenology_calendar || {});
   renderInsights(data);
   renderDecisionBrief(data.decision_brief || {});
   renderAnomalies(data.anomalies || []);
@@ -364,6 +640,7 @@ function renderDashboard(data, displayName) {
 
 function setReportButtons(enabled) {
   document.getElementById('download-report-btn').disabled = !enabled;
+  document.getElementById('export-calendar-btn').disabled = !enabled;
   document.getElementById('print-report-btn').disabled = !enabled;
 }
 
@@ -418,23 +695,85 @@ function buildFactorOverview(factors) {
   return article;
 }
 
-function renderCropTable(cropRisk, cropDependency) {
-  const tbody = document.getElementById('crop-tbody');
+function renderCropTable(cropRisk, cropDependency, cropRiskDetails) {
+  const tbody = document.getElementById('crop-risk-body');
   const crops = Object.keys(cropRisk);
   document.getElementById('crop-count').textContent = `${crops.length} crops`;
   if (crops.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="3" class="empty">No crop risk data returned.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">No crop risk data returned.</td></tr>';
     return;
   }
   tbody.innerHTML = crops.map((crop) => {
-    const risk = cropRisk[crop] || '--';
+    let risk = cropRisk[crop] || '--';
+    let valueAtRisk = '--';
+    
+    if (cropRiskDetails[crop]) {
+      risk = cropRiskDetails[crop].risk_label || risk;
+      const varInr = cropRiskDetails[crop].value_at_risk_inr;
+      if (varInr != null) {
+        valueAtRisk = `\u20B9${varInr.toLocaleString('en-IN')}`;
+      }
+    }
+    
     const dependency = cropDependency[crop] == null ? '--' : `est. ${Math.round(cropDependency[crop] * 100)}%`;
     return `
       <tr>
         <td>${escapeHtml(titleCase(crop))}</td>
         <td>${dependency}</td>
         <td><span class="risk-badge ${risk.toLowerCase()}">${escapeHtml(risk)}</span></td>
+        <td style="font-family: var(--font-data); font-size: 0.85rem; color: #fff;">${valueAtRisk}</td>
       </tr>
+    `;
+  }).join('');
+}
+
+function renderPhenologyCalendar(calendar) {
+  const container = document.getElementById('phenology-calendar-container');
+  if (!container) return;
+  const crops = Object.keys(calendar);
+  if (crops.length === 0) {
+    container.innerHTML = '<p class="empty text-center" style="font-size: 0.85rem; color: var(--text-dim);">No flowering window data available for these crops.</p>';
+    return;
+  }
+  
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const currentMonth = new Date().getMonth() + 1; // 1-12
+  
+  container.innerHTML = crops.map((crop) => {
+    const window = calendar[crop]; // [start, end]
+    let isFlowering = false;
+    if (window[0] <= window[1]) {
+      isFlowering = currentMonth >= window[0] && currentMonth <= window[1];
+    } else {
+      isFlowering = currentMonth >= window[0] || currentMonth <= window[1];
+    }
+    
+    const monthBlocks = Array.from({length: 12}, (_, i) => {
+      const m = i + 1;
+      let inWindow = false;
+      if (window[0] <= window[1]) {
+        inWindow = m >= window[0] && m <= window[1];
+      } else {
+        inWindow = m >= window[0] || m <= window[1];
+      }
+      const isCurrent = m === currentMonth;
+      return `<div style="flex: 1; height: 12px; background: ${inWindow ? 'var(--accent)' : 'rgba(255,255,255,0.1)'}; ${isCurrent ? 'border: 1px solid #fff; transform: scaleY(1.5);' : 'border-right: 1px solid rgba(0,0,0,0.2);'} border-radius: 2px;" title="${months[i]}"></div>`;
+    }).join('');
+
+    return `
+      <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <strong style="color: #fff; font-family: var(--font-display); font-size: 0.95rem;">${escapeHtml(titleCase(crop))}</strong>
+          ${isFlowering ? '<span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent);">Flowering Now</span>' : ''}
+        </div>
+        <div style="display: flex; width: 100%; gap: 2px; margin-top: 8px; align-items: center;">
+          ${monthBlocks}
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 0.65rem; color: var(--text-dim); font-family: var(--font-data);">
+          <span>Jan</span>
+          <span>Dec</span>
+        </div>
+      </div>
     `;
   }).join('');
 }
@@ -496,6 +835,30 @@ function renderAnomalies(anomalies) {
       <p>${escapeHtml(item.description)}</p>
       <p><strong>Action:</strong> ${escapeHtml(item.recommended_action)}</p>
     </article>
+  `).join('');
+}
+
+function renderObservations(obs) {
+  const feed = document.getElementById('observation-feed');
+  if (!feed) return;
+  
+  if (!obs || obs.length === 0) {
+    feed.innerHTML = '<p class="empty" style="padding: 0; text-align: left;">No field logs recorded yet.</p>';
+    return;
+  }
+  
+  feed.innerHTML = obs.map(o => `
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 12px; border-radius: var(--radius-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+        <span style="font-family: var(--font-data); color: var(--accent); font-size: 0.8rem;">${new Date(o.timestamp).toLocaleString()}</span>
+      </div>
+      ${o.species_name ? `<p style="font-size: 0.85rem; color: #fff; margin-bottom: 4px;"><strong>Species:</strong> ${escapeHtml(o.species_name)}</p>` : ''}
+      <div style="display: flex; gap: 12px; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 6px;">
+        ${o.species_count !== null ? `<span>Species Count: <b style="color:#fff; font-family: var(--font-data);">${o.species_count}</b></span>` : ''}
+        ${o.pollinator_count !== null ? `<span>Pollinator Count: <b style="color:#fff; font-family: var(--font-data);">${o.pollinator_count}</b></span>` : ''}
+      </div>
+      ${o.notes ? `<p style="font-size: 0.85rem; color: var(--text); line-height: 1.4;">${escapeHtml(o.notes)}</p>` : ''}
+    </div>
   `).join('');
 }
 
@@ -658,6 +1021,10 @@ function renderDecisionBrief(brief) {
             <span>${escapeHtml(item.severity)} - ${escapeHtml(item.label)}</span>
             <p>${escapeHtml(item.action)}</p>
             ${item.pollination_uplift ? `<em class="uplift-hint">&#x2191; ${escapeHtml(item.pollination_uplift)}</em>` : ''}
+            ${(item.cost_tier || item.uplift_range) ? `<div style="margin-top: 6px; display: flex; gap: 8px; font-size: 0.75rem; font-family: var(--font-data);">
+              ${item.cost_tier ? `<span class="tag">Cost: ${escapeHtml(item.cost_tier)}</span>` : ''}
+              ${item.uplift_range ? `<span class="tag" style="background: rgba(52, 211, 153, 0.1); color: var(--accent);">Uplift: ${escapeHtml(item.uplift_range)}</span>` : ''}
+            </div>` : ''}
           </div>
         </article>
       `).join('')}
@@ -667,6 +1034,35 @@ function renderDecisionBrief(brief) {
       <span>Top crop: ${escapeHtml(titleCase(crops[0]?.crop || '--'))}</span>
       <span>Exposure: ${escapeHtml(crops[0]?.level || '--')}</span>
     </section>
+    
+    ${(Array.isArray(brief.hive_placement) && brief.hive_placement.length > 0) ? `
+      <section class="hive-placement-plan" style="margin-top: 24px;">
+        <h3 style="font-size: 1.1rem; color: #fff; margin-bottom: 12px;">Managed Hive Placement</h3>
+        ${brief.hive_placement.map(hive => `
+          <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <strong style="color: var(--accent); font-family: var(--font-display); font-size: 1.05rem;">${escapeHtml(titleCase(hive.crop))}</strong>
+              <span class="tag" style="background: rgba(255,255,255,0.1);">${Math.round(hive.dependency * 100)}% Dependent</span>
+            </div>
+            <p style="font-size: 0.85rem; color: #fff; margin-bottom: 12px;">${escapeHtml(hive.urgency_note)}</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;">
+                <span style="font-size: 0.75rem; color: var(--text-dim); display: block; margin-bottom: 4px;">Species</span>
+                <strong style="color: #fff; font-family: var(--font-data); font-size: 0.9rem;">${escapeHtml(hive.species)}</strong>
+              </div>
+              <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;">
+                <span style="font-size: 0.75rem; color: var(--text-dim); display: block; margin-bottom: 4px;">Density</span>
+                <strong style="color: #fff; font-family: var(--font-data); font-size: 0.9rem;">${escapeHtml(hive.hives_per_ha)} hives/ha</strong>
+              </div>
+            </div>
+            <ul style="font-size: 0.85rem; color: var(--text); padding-left: 16px; margin: 0; line-height: 1.4;">
+              <li style="margin-bottom: 4px;"><strong>Timing:</strong> ${escapeHtml(hive.timing_note)}</li>
+              <li><strong>Placement:</strong> ${escapeHtml(hive.placement_tip)} (Max forage: ${escapeHtml(String(hive.max_forage_m))}m)</li>
+            </ul>
+          </div>
+        `).join('')}
+      </section>
+    ` : ''}
   `;
 }
 
@@ -792,6 +1188,37 @@ function simulateInterventions(data, selectedIds) {
       ? 'Projection uses conservative factor reductions, not a guaranteed field outcome. Use it to compare intervention priority.'
       : 'Select one or more interventions to estimate likely recovery direction.',
   };
+}
+
+function downloadCalendar() {
+  if (!activeZoneId || !latestAnalysis) return;
+  const lat = latestAnalysis.lat || 0;
+  const lon = latestAnalysis.lon || 0;
+  const params = new URLSearchParams({ lat: String(lat), lon: String(lon) });
+  
+  // Create a hidden iframe or link to trigger the download
+  const downloadUrl = `/zones/${activeZoneId}/calendar.ics?${params.toString()}`;
+  
+  // We need to fetch it using X-API-Key
+  fetch(downloadUrl, { headers: { 'X-API-Key': 'test-api-key-123' } })
+    .then(res => {
+      if (!res.ok) throw new Error('Download failed');
+      return res.blob();
+    })
+    .then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `${activeZoneId}_advisory.ics`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    })
+    .catch(err => {
+      console.error(err);
+      alert('Failed to download calendar. Check console.');
+    });
 }
 
 function downloadFarmerReport() {

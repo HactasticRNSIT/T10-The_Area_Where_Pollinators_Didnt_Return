@@ -96,6 +96,7 @@ export interface AnalysisResponse {
   crop_risk_details?: Record<string, CropRiskDetail>;
   crop_dependency?: Record<string, number>;
   crop_weighted_stress?: number | null;
+  contribution_scores?: Record<string, number>;
   climate?: {
     wind_speed_kmh: number;
     wind_stress_level: "None" | "Moderate" | "High" | "Critical";

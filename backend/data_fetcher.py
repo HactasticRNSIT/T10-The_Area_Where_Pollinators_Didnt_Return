@@ -40,29 +40,47 @@ _SESSION = make_session()
 _SESSION.headers.update({"User-Agent": "PolyNexus/1.0 realtime-ecosystem-dashboard"})
 
 class CircuitBreaker:
+    """Thread-safe circuit breaker.
+
+    Multiple threads can call record_failure/record_success/is_open concurrently
+    (e.g. from ThreadPoolExecutor inside fetch_all, or from /compare running up to
+    6 zones in parallel).  Every read-modify-write is protected by a lock, mirroring
+    the pattern used in ai_analyzer._cb_lock.
+    """
+
     def __init__(self, threshold: int = 3, timeout: int = 60):
         self.threshold = threshold
         self.timeout = timeout
         self.failures = 0
         self.open_until = 0.0
+        self._lock = threading.Lock()  # guards failures + open_until
 
-    def record_failure(self):
-        self.failures += 1
-        if self.failures >= self.threshold:
-            self.open_until = time.monotonic() + self.timeout
-            log.warning("Circuit breaker opened for %ss (failures=%d)", self.timeout, self.failures)
+    def record_failure(self) -> None:
+        with self._lock:
+            self.failures += 1
+            if self.failures >= self.threshold:
+                self.open_until = time.monotonic() + self.timeout
+                log.warning(
+                    "Circuit breaker opened for %ss (failures=%d)",
+                    self.timeout,
+                    self.failures,
+                )
 
-    def record_success(self):
-        self.failures = 0
-        self.open_until = 0.0
+    def record_success(self) -> None:
+        with self._lock:
+            self.failures = 0
+            self.open_until = 0.0
 
     def is_open(self) -> bool:
-        if self.open_until and time.monotonic() < self.open_until:
-            return True
-        if self.open_until:
-            self.open_until = 0.0
-            self.failures = 0
-        return False
+        with self._lock:
+            now = time.monotonic()
+            if self.open_until and now < self.open_until:
+                return True
+            if self.open_until:
+                # Timeout elapsed — reset so next call gets a fresh attempt
+                self.open_until = 0.0
+                self.failures = 0
+            return False
 
 _breakers = {
     "open_meteo": CircuitBreaker(threshold=3, timeout=60),
@@ -93,6 +111,50 @@ def _post(url: str, **kwargs: Any) -> requests.Response:
         ms = (time.monotonic() - t0) * 1000
         domain = url.split("://")[-1].split("/")[0]
         log.info("[timing] POST %s | %.0f ms", domain, ms)
+
+
+# ---------------------------------------------------------------------------
+# Safe error-code mapper (Fix #2 — P0)
+# ---------------------------------------------------------------------------
+# Map raw exception strings to a closed set of client-visible reason codes.
+# This prevents raw URLs, tracebacks, and internal module paths from ever
+# reaching _fetch_error fields that flow into API responses.
+
+_SAFE_ERROR_PATTERNS: list[tuple[str, str]] = [
+    ("circuit_breaker_open",  "circuit_open"),
+    ("timeout",               "timeout"),
+    ("timed out",             "timeout"),
+    ("ConnectionError",       "network_error"),
+    ("ConnectionRefused",     "network_error"),
+    ("Max retries",           "network_error"),
+    ("422",                   "http_error"),
+    ("429",                   "rate_limited"),
+    ("401",                   "auth_error"),
+    ("403",                   "auth_error"),
+    ("404",                   "http_error"),
+    ("5",                     "http_error"),    # catches 500/502/503/504 prefixes
+    ("JSONDecodeError",       "parse_error"),
+    ("json",                  "parse_error"),
+    ("KeyError",              "parse_error"),
+    ("AttributeError",        "parse_error"),
+]
+
+
+def _safe_error(exc: Any) -> str | None:
+    """Convert an exception (or existing error string) to a client-safe reason code.
+
+    Raw exception messages, stack-trace fragments, full URLs with query parameters,
+    and internal Python module names are never forwarded to callers.  Only the
+    normalised reason code reaches the response body; the original message is already
+    captured by log.warning/log.exception at the call site.
+    """
+    if exc is None:
+        return None
+    raw = str(exc)
+    for pattern, code in _SAFE_ERROR_PATTERNS:
+        if pattern.lower() in raw.lower():
+            return code
+    return "unavailable"
 
 
 def _source_quality(source: str | None, fetch_error: Any = None) -> str:
@@ -130,7 +192,9 @@ def _build_realtime_status(raw: dict[str, Any]) -> dict[str, Any]:
         health[key] = {
             "source": source_str,
             "quality": _source_quality(value.get("source"), value.get("_fetch_error")),
-            "error": value.get("_fetch_error"),
+            # _safe_error maps raw exception strings → closed set of reason codes (Fix #2 / P0).
+            # The original message is already captured server-side by log.warning/log.exception.
+            "error": _safe_error(value.get("_fetch_error")),
             "warning": value.get("_data_warning"),
         }
     live_count = sum(1 for item in health.values() if item["quality"] == "live")
@@ -147,16 +211,40 @@ def _build_realtime_status(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TTL cache (in-process dict, TTL = 300 s)
-# Note: This is an in-process cache. In a multi-worker production deployment 
-# (e.g. Uvicorn with --workers > 1), each worker will have its own independent cache,
-# multiplying external API load. For such deployments, use a shared backend like Redis,
-# or run with WORKERS=1.
+# TTL cache (in-process dict, source-dependent TTL)
+#
+# IMPORTANT — SCALING NOTE: This is an in-process cache. In a multi-worker
+# production deployment (e.g. Uvicorn with --workers > 1), each worker has its
+# own independent cache, multiplying external API load. Before horizontal
+# scaling, migrate to a shared Redis-backed cache, or force WORKERS=1.
 # ──────────────────────────────────────────────────────────────────────────────
 
-_TTL_SECONDS = 300
+# Per-source TTL values (seconds).  Keys match the cache_key prefix used at
+# each _cache_set call site.  Fallback for unknown prefixes is 300 s.
+_TTL_BY_SOURCE: dict[str, int] = {
+    "agro_ndvi":      86_400,   # 24 h  — satellite composites change daily at most
+    "soilgrids":     604_800,   # 7 days — static pedology data
+    "open_meteo":      3_600,   # 1 h   — climate archive
+    "nasa_power":      3_600,   # 1 h   — NASA POWER agrometeorological archive
+    "gbif":           86_400,   # 24 h  — species occurrence records
+    "open_meteo_agro":   900,   # 15 min — short-range agro forecast updates
+    "inat":           86_400,   # 24 h  — iNaturalist observations
+    "ibp":            86_400,   # 24 h  — India Biodiversity Portal
+    "water":           3_600,   # 1 h   — water-body proximity (OSM derived)
+    "soil":          604_800,   # 7 days — SoilGrids REST API
+}
+_TTL_DEFAULT = 300  # fallback for any cache_key prefix not listed above
+
 _cache: dict[str, tuple[float, Any]] = {}
 _cache_lock = threading.Lock()
+
+
+def _ttl_for_key(key: str) -> int:
+    """Return the TTL (seconds) for a given cache key by matching its prefix."""
+    for prefix, ttl in _TTL_BY_SOURCE.items():
+        if key.startswith(prefix):
+            return ttl
+    return _TTL_DEFAULT
 
 
 def _cache_get(key: str) -> Any | None:
@@ -168,9 +256,15 @@ def _cache_get(key: str) -> Any | None:
     return None
 
 
-def _cache_set(key: str, value: Any) -> None:
+def _cache_set(key: str, value: Any, ttl: int | None = None) -> None:
+    """Store *value* under *key* with an expiry of *ttl* seconds.
+
+    If *ttl* is not provided the TTL is inferred from the cache key prefix
+    via ``_ttl_for_key`` (see ``_TTL_BY_SOURCE``).
+    """
+    effective_ttl = ttl if ttl is not None else _ttl_for_key(key)
     with _cache_lock:
-        _cache[key] = (time.monotonic() + _TTL_SECONDS, value)
+        _cache[key] = (time.monotonic() + effective_ttl, value)
 
 def clear_data_cache() -> None:
     """Clear all memory caches (called by admin endpoint)."""

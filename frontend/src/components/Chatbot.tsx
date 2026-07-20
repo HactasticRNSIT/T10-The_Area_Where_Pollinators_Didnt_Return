@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Send, Bot, User } from 'lucide-react';
+import { API_KEY } from '../api/client';
 
 interface ChatMessage {
   id: string;
@@ -45,7 +46,7 @@ export function Chatbot() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'X-API-Key': 'test-api-key-123'
+          'X-API-Key': API_KEY
         },
         body: JSON.stringify({ message: userMessage.text })
       });

@@ -469,6 +469,15 @@ def get_ai_insights(
     and pollination_boost_actions — every field oriented toward increasing
     pollination rates and crop fertility.
     """
+    if os.environ.get("POLYNEXUS_MOCK_EXTERNAL", "0") == "1":
+        log.warning("⚠️ MOCK MODE ACTIVE ⚠️ — Skipping Groq LLM call for %s", zone_id)
+        return {
+            "biodiversity_insight": "Mock Groq Insight: Rapid decline in native bee visits correlates strongly with a recent unrecorded pesticide event in adjacent plots. Thermal stress is secondary.",
+            "top_intervention": "Suspend broad-spectrum applications and restore un-mowed field margins to bridge the forage gap.",
+            "pollination_boost_actions": ["Deploy supplementary solitary bee nesting blocks", "Provide shallow clean water sources"],
+            "insight_source": "mock_groq"
+        }
+
     user_content = _build_user_prompt(zone_id, lat, lon, scores, anomalies, raw)
 
     for attempt in (1, 2):

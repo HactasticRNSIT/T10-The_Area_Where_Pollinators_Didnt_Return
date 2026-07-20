@@ -1,0 +1,48 @@
+{
+  "_description": "Golden fixture: severe soil stress — ph=4.5 (critical <5.0), SOC=0.5 (critical <=0.8), nitrogen=0.4 (critical <=0.5), severe drought (moisture=0.10 <0.15). Mango zone in UP.",
+  "zone_id": "IN_UP",
+  "raw": {
+    "pesticide": {
+      "usage_ppm": 2.0,
+      "applications_per_month": 1,
+      "days_since_last_application": 20,
+      "pesticide_type": "pyrethroid"
+    },
+    "soil": {
+      "ph": 4.5,
+      "organic_carbon_g_per_kg": 0.5,
+      "nitrogen_g_per_kg": 0.4
+    },
+    "nasa": {
+      "root_zone_wetness": 0.10
+    },
+    "climate": {
+      "temp_std_c": 9.0,
+      "total_precipitation_mm": 25.0,
+      "drought_index": 0.45,
+      "avg_windspeed_kmh": 12.0
+    },
+    "ndvi": {
+      "ndvi": 0.45,
+      "bare_soil_fraction": 0.28,
+      "disturbance_score": 0.40
+    },
+    "gbif": {
+      "species_count": 8,
+      "source": "gbif"
+    },
+    "visitation": {},
+    "_meta": {}
+  },
+  "expected": {
+    "anomaly_count_min": 4,
+    "must_include": [
+      {"factor": "soil_fertility", "severity": "CRITICAL", "variable": "ph"},
+      {"factor": "soil_fertility", "severity": "CRITICAL", "variable": "organic_carbon_g_per_kg"},
+      {"factor": "soil_fertility", "severity": "CRITICAL", "variable": "nitrogen_g_per_kg"},
+      {"factor": "soil_fertility", "severity": "CRITICAL", "variable": "root_zone_wetness"}
+    ],
+    "no_india_terms": [],
+    "india_terms_required": ["dolomite"]
+  }
+}

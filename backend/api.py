@@ -42,6 +42,11 @@ from groq import Groq
 groq_client = None
 if os.environ.get("GROQ_API_KEY"):
     groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+
+# Ensure backend directory is in sys.path so sibling modules can be imported
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
 from main import analyse_zone
 
 FRONTEND_DIST = BACKEND_DIR.parent / "frontend" / "dist"
@@ -199,6 +204,9 @@ async def _global_exception_handler(request: Request, exc: Exception) -> JSONRes
 app.add_exception_handler(Exception, _global_exception_handler)
 
 ANALYSE_RATE_LIMIT = os.environ.get("ANALYSE_RATE_LIMIT", "1/second")
+# Compare is heavier (fans out N zone analyses) so defaults to a tighter limit.
+# Set COMPARE_RATE_LIMIT=60/minute for load testing — never default-on.
+COMPARE_RATE_LIMIT = os.environ.get("COMPARE_RATE_LIMIT", "2/minute")
 
 cors_origins = os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(
@@ -442,7 +450,7 @@ def list_zones():
 
 
 @app.get("/analyse", dependencies=[Depends(require_api_key)])
-@limiter.limit("5/minute")
+@limiter.limit(ANALYSE_RATE_LIMIT)
 async def analyse(
     request: Request,
     params: AnalyseParams = Depends()
@@ -462,7 +470,7 @@ async def analyse(
 
 
 @app.post("/analyse", dependencies=[Depends(require_api_key)])
-@limiter.limit("5/minute")
+@limiter.limit(ANALYSE_RATE_LIMIT)
 async def analyse_post(
     request: Request,
     payload: AnalyseRequest
@@ -489,7 +497,7 @@ async def analyse_post(
         raise HTTPException(status_code=500, detail="Internal analysis error. Please try again.") from exc
 
 @app.post("/compare", dependencies=[Depends(require_api_key)])
-@limiter.limit("2/minute")
+@limiter.limit(COMPARE_RATE_LIMIT)
 async def compare_zones(request: Request, payload: CompareRequest):
     start_time = time.monotonic()
     
@@ -677,6 +685,33 @@ async def record_zone_observation(
         target.write_bytes(file_bytes)
         photo_filename = str(target)
 
+    # ── Ground-truth outlier detection (Task 4) ──────────────────────────────
+    # Compare submitted species_count and pollinator_count against the most
+    # recent GBIF species_count stored for this zone.  If either value is
+    # more than 3× or less than 0.1× the reference, flag the record as an
+    # outlier.  We NEVER reject the submission — only annotate it.
+    import history_store as _hs
+    import json as _json
+    _outlier = False
+    try:
+        _recent = _hs.get_history(zone_id, limit=1)
+        if _recent:
+            _raw = _recent[0].get("raw_data") or {}
+            _ref_species = (
+                _raw.get("gbif", {}).get("species_count")
+            )
+            if _ref_species and _ref_species > 0:
+                _OUTLIER_HIGH = 3.0
+                _OUTLIER_LOW  = 0.1
+                for _submitted in filter(None, [species_count, pollinator_count]):
+                    ratio = _submitted / _ref_species
+                    if ratio > _OUTLIER_HIGH or ratio < _OUTLIER_LOW:
+                        _outlier = True
+                        break
+    except Exception as _oe:
+        # Outlier check is best-effort — don't let it block a valid submission.
+        _obs_log.warning("Outlier check failed for zone %s: %s", zone_id, _oe)
+
     observation_id = observation_store.record_observation(
         zone_id=zone_id,
         species_name=species_name,
@@ -684,8 +719,11 @@ async def record_zone_observation(
         pollinator_count=pollinator_count,
         photo_filename=photo_filename,
         notes=notes,
+        outlier=_outlier,
     )
-    return {"zone_id": zone_id, "observation_id": observation_id, "status": "recorded"}
+    return {"zone_id": zone_id, "observation_id": observation_id, "status": "recorded",
+            "outlier": _outlier}
+
 
 
 @app.get("/zones/{zone_id}/observations", dependencies=[Depends(require_api_key)])
@@ -701,7 +739,7 @@ from fastapi.responses import Response as _Response
 
 @app.get("/zones/{zone_id}/calendar.ics", dependencies=[Depends(require_api_key)])
 @limiter.limit("5/minute")
-def get_zone_calendar(
+async def get_zone_calendar(
     request: Request,
     zone_id: str = Depends(_validate_zone_id),  # Fix #3 (P1): validate before header interpolation
     lat: float = Query(..., ge=-90.0,  le=90.0),
@@ -709,7 +747,7 @@ def get_zone_calendar(
 ):
     """Generate a .ics advisory calendar for a zone based on its latest analysis."""
     try:
-        result = analyse_zone(zone_id=zone_id, lat=lat, lon=lon)
+        result = await analyse_zone(zone_id=zone_id, lat=lat, lon=lon)
         decision_brief = result.get("decision_brief", {})
         crops = result.get("crop_dependency", {})
 
@@ -780,3 +818,114 @@ def chat(
             reply = "I'm your Agri-Bot! I can help you understand how to reduce pollinator stress, manage pesticide risks, improve floral habitats, or adapt to climate extremes. What would you like to know?"
 
     return ChatResponse(reply=reply)
+
+
+
+# ── Task 7: Intervention efficacy endpoint ───────────────────────────────────
+
+import os as _os
+if _os.environ.get("ENABLE_EFFICACY_ENDPOINT", "0") == "1":
+    @app.get("/interventions/efficacy", dependencies=[Depends(require_api_key)])
+    def interventions_efficacy():
+        """
+        Aggregate before/after efficacy across all recorded interventions.
+
+        Returns a self-gating response: when fewer than 30 intervention records
+        are present the response includes ``"data_sufficient": false`` so the
+        frontend can display a "not enough data yet" state without erroring.
+        """
+        import intervention_store as _is
+        return _is.get_efficacy_summary()
+
+
+# ── API versioning — Task 6 ───────────────────────────────────────────────────
+# All public endpoints are now also available under /v1/* so that clients can
+# pin to an explicit version.  The original un-prefixed paths remain registered
+# on `app` for backward compatibility; no existing callers need to change.
+#
+# Pattern: create an APIRouter with prefix="/v1", then add_api_route() for each
+# handler function using the same path, methods and dependencies.
+# This avoids duplicating @decorator logic and keeps backward-compat clean.
+
+from fastapi.routing import APIRouter as _APIRouter
+
+v1_router = _APIRouter(prefix="/v1", tags=["v1"])
+
+# Public read-only ──────────────────────────────────────────────────────────
+v1_router.add_api_route("/health",   health,   methods=["GET"])
+v1_router.add_api_route("/healthz",  healthz,  methods=["GET"])
+v1_router.add_api_route("/readyz",   readyz,   methods=["GET"])
+v1_router.add_api_route("/zones",    list_zones, methods=["GET"])
+
+# Analysis (authenticated) ──────────────────────────────────────────────────
+v1_router.add_api_route(
+    "/analyse",
+    analyse,
+    methods=["GET"],
+    dependencies=[Depends(require_api_key)],
+)
+v1_router.add_api_route(
+    "/analyse",
+    analyse_post,
+    methods=["POST"],
+    dependencies=[Depends(require_api_key)],
+)
+v1_router.add_api_route(
+    "/compare",
+    compare_zones,
+    methods=["POST"],
+    dependencies=[Depends(require_api_key)],
+)
+
+# Chat ──────────────────────────────────────────────────────────────────────
+v1_router.add_api_route(
+    "/chat",
+    chat,
+    methods=["POST"],
+    response_model=ChatResponse,
+    dependencies=[Depends(require_api_key)],
+)
+
+# Zone-scoped (authenticated) ───────────────────────────────────────────────
+v1_router.add_api_route(
+    "/zones/{zone_id}/observations",
+    record_zone_observation,
+    methods=["POST"],
+    dependencies=[Depends(require_api_key)],
+)
+v1_router.add_api_route(
+    "/zones/{zone_id}/observations",
+    list_zone_observations,
+    methods=["GET"],
+    dependencies=[Depends(require_api_key)],
+)
+v1_router.add_api_route(
+    "/zones/{zone_id}/calendar.ics",
+    get_zone_calendar,
+    methods=["GET"],
+    dependencies=[Depends(require_api_key)],
+)
+
+# Admin (separate key) ──────────────────────────────────────────────────────
+v1_router.add_api_route(
+    "/admin/cache/clear",
+    admin_clear_cache,
+    methods=["POST"],
+    dependencies=[Depends(require_admin_key)],
+)
+
+# Task 7 ────────────────────────────────────────────────────────────────────
+if _os.environ.get("ENABLE_EFFICACY_ENDPOINT", "0") == "1":
+    v1_router.add_api_route(
+        "/interventions/efficacy",
+        interventions_efficacy,
+        methods=["GET"],
+        dependencies=[Depends(require_api_key)],
+    )
+
+
+# Mount the versioned router onto the app.
+# NOTE: Because handlers already carry @limiter.limit decorators at the
+# function level (not at the route level), rate limiting is shared across
+# both /analyse and /v1/analyse — which is the intended behaviour.
+app.include_router(v1_router)

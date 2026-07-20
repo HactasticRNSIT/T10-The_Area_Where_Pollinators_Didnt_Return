@@ -1,0 +1,260 @@
+INFO:     Started server process [28840]
+INFO:     Waiting for application startup.
+2026-07-18 19:47:28,871 [WARNING] polynexus.startup: CORS_ORIGINS env var is not set; defaulting to http://localhost:5173 (development only). Set CORS_ORIGINS to your production frontend origin before going live.
+2026-07-18 19:47:28,871 [WARNING] polynexus.startup: TRUSTED_PROXY_CIDR is not set. IP-based rate limiting may be spoofable if the reverse proxy does not strip incoming X-Forwarded-For headers.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+2026-07-18 19:47:36,487 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.68.77.18:0 - "GET /v1/zones/IN_GJ_01/observations HTTP/1.1" 200 OK
+INFO:     10.122.232.198:0 - "GET /v1/analyse?zone_id=IN_AS_01&lat=27.4728&lon=94.912 HTTP/1.1" 200 OK
+2026-07-18 19:47:37,453 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:37,468 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.121.61.244:0 - "GET /v1/analyse?zone_id=IN_PB_01&lat=30.901&lon=75.8573 HTTP/1.1" 200 OK
+INFO:     10.196.83.220:0 - "GET /v1/analyse?zone_id=IN_AS_01&lat=27.4728&lon=94.912 HTTP/1.1" 200 OK
+2026-07-18 19:47:38,134 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.122.232.198:0 - "GET /v1/analyse?zone_id=IN_UP_01&lat=26.9124&lon=80.7145 HTTP/1.1" 200 OK
+2026-07-18 19:47:38,285 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.68.77.18:0 - "GET /v1/analyse?zone_id=IN_JK_01&lat=34.0152&lon=74.9315 HTTP/1.1" 200 OK
+2026-07-18 19:47:38,446 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:38,466 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:38,474 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.191.17.41:0 - "GET /v1/analyse?zone_id=IN_PB_01&lat=30.901&lon=75.8573 HTTP/1.1" 200 OK
+INFO:     10.171.9.128:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:39,448 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:39,474 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.241.245.170:0 - "GET /v1/analyse?zone_id=IN_AS_01&lat=27.4728&lon=94.912 HTTP/1.1" 200 OK
+INFO:     10.77.193.141:0 - "GET /v1/analyse?zone_id=IN_WB_01&lat=23.2324&lon=87.8615 HTTP/1.1" 200 OK
+INFO:     10.121.61.244:0 - "GET /v1/zones/IN_PB_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:47:39,602 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.196.83.220:0 - "GET /v1/analyse?zone_id=IN_AS_01&lat=27.4728&lon=94.912 HTTP/1.1" 200 OK
+2026-07-18 19:47:40,379 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.171.9.128:0 - "GET /v1/analyse?zone_id=IN_JK_01&lat=34.0152&lon=74.9315 HTTP/1.1" 200 OK
+2026-07-18 19:47:40,459 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.33.253.134:0 - "GET /v1/zones/IN_TN_01/observations HTTP/1.1" 200 OK
+INFO:     10.102.249.130:0 - "GET /v1/analyse?zone_id=IN_HP_01&lat=31.1048&lon=77.1734 HTTP/1.1" 200 OK
+2026-07-18 19:47:40,486 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:40,501 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.122.232.198:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:40,958 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.191.17.41:0 - "GET /v1/zones/IN_MP_01/observations HTTP/1.1" 200 OK
+INFO:     10.77.193.141:0 - "GET /v1/analyse?zone_id=IN_AS_01&lat=27.4728&lon=94.912 HTTP/1.1" 200 OK
+2026-07-18 19:47:41,269 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.68.77.18:0 - "GET /v1/analyse?zone_id=IN_RJ_01&lat=27.2152&lon=77.4941 HTTP/1.1" 200 OK
+2026-07-18 19:47:41,331 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.121.61.244:0 - "GET /v1/analyse?zone_id=IN_UP_01&lat=26.9124&lon=80.7145 HTTP/1.1" 200 OK
+2026-07-18 19:47:41,689 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.196.83.220:0 - "GET /v1/analyse?zone_id=IN_PB_01&lat=30.901&lon=75.8573 HTTP/1.1" 200 OK
+2026-07-18 19:47:41,825 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.102.249.130:0 - "GET /v1/analyse?zone_id=IN_KL_01&lat=9.8482&lon=77.0005 HTTP/1.1" 200 OK
+2026-07-18 19:47:41,854 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.33.253.134:0 - "GET /v1/analyse?zone_id=IN_HP_01&lat=31.1048&lon=77.1734 HTTP/1.1" 200 OK
+2026-07-18 19:47:42,187 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.122.232.198:0 - "GET /v1/analyse?zone_id=IN_BR_01&lat=26.1209&lon=85.3647 HTTP/1.1" 200 OK
+2026-07-18 19:47:42,471 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.241.245.170:0 - "GET /v1/analyse?zone_id=IN_TG_01&lat=18.6725&lon=78.0941 HTTP/1.1" 200 OK
+2026-07-18 19:47:42,534 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.77.193.141:0 - "GET /v1/analyse?zone_id=IN_UP_01&lat=26.9124&lon=80.7145 HTTP/1.1" 200 OK
+2026-07-18 19:47:42,685 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.171.9.128:0 - "GET /v1/analyse?zone_id=IN_JK_01&lat=34.0152&lon=74.9315 HTTP/1.1" 200 OK
+2026-07-18 19:47:42,987 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.68.77.18:0 - "GET /v1/analyse?zone_id=IN_AS_01&lat=27.4728&lon=94.912 HTTP/1.1" 200 OK
+INFO:     10.196.83.220:0 - "GET /v1/zones/IN_PB_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:47:43,230 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:43,235 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.191.17.41:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:43,301 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.121.61.244:0 - "GET /v1/analyse?zone_id=IN_JK_01&lat=34.0152&lon=74.9315 HTTP/1.1" 200 OK
+2026-07-18 19:47:43,785 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.102.249.130:0 - "GET /v1/analyse?zone_id=IN_UP_01&lat=26.9124&lon=80.7145 HTTP/1.1" 200 OK
+INFO:     10.241.245.170:0 - "GET /v1/zones/IN_TN_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:47:44,351 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.33.253.134:0 - "GET /v1/analyse?zone_id=IN_KL_01&lat=9.8482&lon=77.0005 HTTP/1.1" 200 OK
+2026-07-18 19:47:44,520 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.121.61.244:0 - "GET /v1/analyse?zone_id=IN_UP_01&lat=26.9124&lon=80.7145 HTTP/1.1" 200 OK
+2026-07-18 19:47:44,735 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.122.232.198:0 - "GET /v1/analyse?zone_id=IN_WB_01&lat=23.2324&lon=87.8615 HTTP/1.1" 200 OK
+2026-07-18 19:47:45,179 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.68.77.18:0 - "GET /v1/analyse?zone_id=IN_TG_01&lat=18.6725&lon=78.0941 HTTP/1.1" 200 OK
+2026-07-18 19:47:45,281 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.196.83.220:0 - "GET /v1/analyse?zone_id=IN_MP_01&lat=23.8388&lon=78.7378 HTTP/1.1" 200 OK
+INFO:     10.77.193.141:0 - "GET /v1/zones/IN_JK_01/observations HTTP/1.1" 200 OK
+INFO:     10.171.9.128:0 - "GET /v1/zones/IN_TN_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:47:45,451 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:45,458 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.33.253.134:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:45,582 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.191.17.41:0 - "GET /v1/analyse?zone_id=IN_UP_01&lat=26.9124&lon=80.7145 HTTP/1.1" 200 OK
+2026-07-18 19:47:46,534 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.102.249.130:0 - "GET /v1/analyse?zone_id=IN_KA_01&lat=15.4589&lon=75.0078 HTTP/1.1" 200 OK
+2026-07-18 19:47:46,839 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.241.245.170:0 - "GET /v1/analyse?zone_id=IN_KA_01&lat=15.4589&lon=75.0078 HTTP/1.1" 200 OK
+2026-07-18 19:47:46,951 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:46,981 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:47,004 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.33.253.134:0 - "POST /v1/compare HTTP/1.1" 200 OK
+INFO:     10.122.232.198:0 - "GET /v1/analyse?zone_id=IN_MH_01&lat=21.1458&lon=79.0882 HTTP/1.1" 200 OK
+2026-07-18 19:47:47,094 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.121.61.244:0 - "GET /v1/analyse?zone_id=IN_MH_01&lat=21.1458&lon=79.0882 HTTP/1.1" 200 OK
+INFO:     10.77.193.141:0 - "GET /v1/zones/IN_KA_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:47:47,644 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:47,680 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:47,694 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.102.249.130:0 - "GET /v1/analyse?zone_id=IN_KL_01&lat=9.8482&lon=77.0005 HTTP/1.1" 200 OK
+INFO:     10.171.9.128:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:48,130 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.196.83.220:0 - "GET /v1/analyse?zone_id=IN_UP_01&lat=26.9124&lon=80.7145 HTTP/1.1" 200 OK
+2026-07-18 19:47:48,209 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.68.77.18:0 - "GET /v1/analyse?zone_id=IN_TN_01&lat=10.6591&lon=77.0089 HTTP/1.1" 200 OK
+INFO:     10.191.17.41:0 - "GET /v1/zones/IN_JK_01/observations HTTP/1.1" 200 OK
+INFO:     10.171.9.128:0 - "GET /v1/zones/IN_MP_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:47:48,921 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.77.193.141:0 - "GET /v1/analyse?zone_id=IN_KA_01&lat=15.4589&lon=75.0078 HTTP/1.1" 200 OK
+2026-07-18 19:47:49,001 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:49,021 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.121.61.244:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:49,310 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.102.249.130:0 - "GET /v1/analyse?zone_id=IN_TG_01&lat=18.6725&lon=78.0941 HTTP/1.1" 200 OK
+INFO:     10.33.253.134:0 - "GET /v1/zones/IN_JK_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:47:49,470 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.122.232.198:0 - "GET /v1/analyse?zone_id=IN_GJ_01&lat=22.7319&lon=71.6482 HTTP/1.1" 200 OK
+2026-07-18 19:47:49,821 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:49,845 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.68.77.18:0 - "GET /v1/analyse?zone_id=IN_MP_01&lat=23.8388&lon=78.7378 HTTP/1.1" 200 OK
+INFO:     10.241.245.170:0 - "GET /v1/analyse?zone_id=IN_AS_01&lat=27.4728&lon=94.912 HTTP/1.1" 200 OK
+2026-07-18 19:47:50,483 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:50,495 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:50,502 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:50,518 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.33.253.134:0 - "POST /v1/compare HTTP/1.1" 200 OK
+INFO:     10.102.249.130:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:50,745 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:50,765 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.196.83.220:0 - "GET /v1/analyse?zone_id=IN_AS_01&lat=27.4728&lon=94.912 HTTP/1.1" 200 OK
+INFO:     10.122.232.198:0 - "GET /v1/analyse?zone_id=IN_TN_01&lat=10.6591&lon=77.0089 HTTP/1.1" 200 OK
+INFO:     10.191.17.41:0 - "GET /v1/zones/IN_TG_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:47:51,276 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:51,281 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.171.9.128:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:51,435 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.121.61.244:0 - "GET /v1/analyse?zone_id=IN_KA_01&lat=15.4589&lon=75.0078 HTTP/1.1" 200 OK
+2026-07-18 19:47:51,528 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.77.193.141:0 - "GET /v1/analyse?zone_id=IN_WB_01&lat=23.2324&lon=87.8615 HTTP/1.1" 200 OK
+2026-07-18 19:47:51,947 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.102.249.130:0 - "GET /v1/analyse?zone_id=IN_MH_01&lat=21.1458&lon=79.0882 HTTP/1.1" 200 OK
+2026-07-18 19:47:52,122 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:52,138 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.33.253.134:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:52,687 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:52,703 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.241.245.170:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:52,741 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.68.77.18:0 - "GET /v1/analyse?zone_id=IN_BR_01&lat=26.1209&lon=85.3647 HTTP/1.1" 200 OK
+INFO:     10.191.17.41:0 - "GET /v1/zones/IN_RJ_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:47:53,424 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:53,430 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:53,437 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.196.83.220:0 - "GET /v1/analyse?zone_id=IN_WB_01&lat=23.2324&lon=87.8615 HTTP/1.1" 200 OK
+INFO:     10.122.232.198:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:53,625 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:53,637 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.121.61.244:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:53,739 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.102.249.130:0 - "GET /v1/analyse?zone_id=IN_PB_01&lat=30.901&lon=75.8573 HTTP/1.1" 200 OK
+2026-07-18 19:47:53,806 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:53,828 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.77.193.141:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:53,918 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.171.9.128:0 - "GET /v1/analyse?zone_id=IN_BR_01&lat=26.1209&lon=85.3647 HTTP/1.1" 200 OK
+INFO:     10.241.245.170:0 - "GET /v1/zones/IN_BR_01/observations HTTP/1.1" 200 OK
+INFO:     10.191.17.41:0 - "GET /v1/zones/IN_HP_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:47:54,180 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.68.77.18:0 - "GET /v1/analyse?zone_id=IN_TG_01&lat=18.6725&lon=78.0941 HTTP/1.1" 200 OK
+2026-07-18 19:47:54,475 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.33.253.134:0 - "GET /v1/analyse?zone_id=IN_WB_01&lat=23.2324&lon=87.8615 HTTP/1.1" 200 OK
+2026-07-18 19:47:54,630 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:54,646 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.196.83.220:0 - "POST /v1/compare HTTP/1.1" 200 OK
+INFO:     10.241.245.170:0 - "GET /v1/zones/IN_KA_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:47:55,359 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.77.193.141:0 - "GET /v1/zones/IN_MP_01/observations HTTP/1.1" 200 OK
+INFO:     10.191.17.41:0 - "GET /v1/analyse?zone_id=IN_KL_01&lat=9.8482&lon=77.0005 HTTP/1.1" 200 OK
+INFO:     10.68.77.18:0 - "GET /v1/zones/IN_UP_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:47:55,736 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.122.232.198:0 - "GET /v1/analyse?zone_id=IN_TG_01&lat=18.6725&lon=78.0941 HTTP/1.1" 200 OK
+2026-07-18 19:47:55,879 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.102.249.130:0 - "GET /v1/analyse?zone_id=IN_AS_01&lat=27.4728&lon=94.912 HTTP/1.1" 200 OK
+2026-07-18 19:47:56,140 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.241.245.170:0 - "GET /v1/analyse?zone_id=IN_WB_01&lat=23.2324&lon=87.8615 HTTP/1.1" 200 OK
+2026-07-18 19:47:56,285 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.121.61.244:0 - "GET /v1/analyse?zone_id=IN_RJ_01&lat=27.2152&lon=77.4941 HTTP/1.1" 200 OK
+2026-07-18 19:47:56,860 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:56,876 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.171.9.128:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:56,980 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:56,993 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.77.193.141:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:57,045 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.122.232.198:0 - "GET /v1/analyse?zone_id=IN_KA_01&lat=15.4589&lon=75.0078 HTTP/1.1" 200 OK
+2026-07-18 19:47:57,326 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.196.83.220:0 - "GET /v1/analyse?zone_id=IN_PB_01&lat=30.901&lon=75.8573 HTTP/1.1" 200 OK
+2026-07-18 19:47:57,497 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.33.253.134:0 - "GET /v1/analyse?zone_id=IN_MP_01&lat=23.8388&lon=78.7378 HTTP/1.1" 200 OK
+2026-07-18 19:47:57,718 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.241.245.170:0 - "GET /v1/analyse?zone_id=IN_KA_01&lat=15.4589&lon=75.0078 HTTP/1.1" 200 OK
+INFO:     10.68.77.18:0 - "GET /v1/zones/IN_UP_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:47:57,862 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.121.61.244:0 - "GET /v1/analyse?zone_id=IN_KA_01&lat=15.4589&lon=75.0078 HTTP/1.1" 200 OK
+2026-07-18 19:47:58,221 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:58,237 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.102.249.130:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:58,301 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.171.9.128:0 - "GET /v1/analyse?zone_id=IN_KA_01&lat=15.4589&lon=75.0078 HTTP/1.1" 200 OK
+2026-07-18 19:47:58,363 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.191.17.41:0 - "GET /v1/analyse?zone_id=IN_HP_01&lat=31.1048&lon=77.1734 HTTP/1.1" 200 OK
+2026-07-18 19:47:58,904 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.122.232.198:0 - "GET /v1/analyse?zone_id=IN_MH_01&lat=21.1458&lon=79.0882 HTTP/1.1" 200 OK
+INFO:     10.77.193.141:0 - "GET /v1/zones/IN_HP_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:47:59,199 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:47:59,202 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.121.61.244:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:47:59,310 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.196.83.220:0 - "GET /v1/analyse?zone_id=IN_MP_01&lat=23.8388&lon=78.7378 HTTP/1.1" 200 OK
+2026-07-18 19:47:59,437 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.33.253.134:0 - "GET /v1/analyse?zone_id=IN_KL_01&lat=9.8482&lon=77.0005 HTTP/1.1" 200 OK
+2026-07-18 19:47:59,547 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.68.77.18:0 - "GET /v1/analyse?zone_id=IN_TG_01&lat=18.6725&lon=78.0941 HTTP/1.1" 200 OK
+2026-07-18 19:48:00,265 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:48:00,280 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.241.245.170:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:48:00,502 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.191.17.41:0 - "GET /v1/analyse?zone_id=IN_TN_01&lat=10.6591&lon=77.0089 HTTP/1.1" 200 OK
+2026-07-18 19:48:00,534 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.102.249.130:0 - "GET /v1/analyse?zone_id=IN_BR_01&lat=26.1209&lon=85.3647 HTTP/1.1" 200 OK
+INFO:     10.77.193.141:0 - "GET /v1/zones/IN_HP_01/observations HTTP/1.1" 200 OK
+2026-07-18 19:48:00,810 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.122.232.198:0 - "GET /v1/analyse?zone_id=IN_MP_01&lat=23.8388&lon=78.7378 HTTP/1.1" 200 OK
+2026-07-18 19:48:00,999 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:48:01,016 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.68.77.18:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:48:01,228 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:48:01,240 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:48:01,261 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:48:01,276 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.171.9.128:0 - "POST /v1/compare HTTP/1.1" 200 OK
+INFO:     10.121.61.244:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:48:01,795 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:48:01,810 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.196.83.220:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:48:02,185 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+2026-07-18 19:48:02,198 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.122.232.198:0 - "POST /v1/compare HTTP/1.1" 200 OK
+2026-07-18 19:48:02,278 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.241.245.170:0 - "GET /v1/analyse?zone_id=IN_RJ_01&lat=27.2152&lon=77.4941 HTTP/1.1" 200 OK
+2026-07-18 19:48:02,310 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.33.253.134:0 - "GET /v1/analyse?zone_id=IN_GJ_01&lat=22.7319&lon=71.6482 HTTP/1.1" 200 OK
+2026-07-18 19:48:02,515 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.68.77.18:0 - "GET /v1/analyse?zone_id=IN_TG_01&lat=18.6725&lon=78.0941 HTTP/1.1" 200 OK
+2026-07-18 19:48:03,248 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.102.249.130:0 - "GET /v1/analyse?zone_id=IN_MH_01&lat=21.1458&lon=79.0882 HTTP/1.1" 200 OK
+2026-07-18 19:48:03,295 [WARNING] main: \u26a0\ufe0f MOCK MODE ACTIVE \u26a0\ufe0f ù POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!
+INFO:     10.121.61.244:0 - "GET /v1/analyse?zone_id=IN_AS_01&lat=27.4728&lon=94.912 HTTP/1.1" 200 OK

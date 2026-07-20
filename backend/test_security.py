@@ -12,7 +12,13 @@ import io
 import os
 import sys
 import ipaddress
+import warnings
 import pytest
+
+# Suppress the httpx deprecation warning from starlette so tests run cleanly
+# whether httpx or httpx2 is installed.
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*httpx.*", category=Warning)
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -112,14 +118,23 @@ class TestFileUploadSecurity:
         assert response.status_code in (400, 404, 422), response.text
 
     def test_zone_id_with_special_chars_rejected(self, api_client):
-        """zone_id containing shell-injection characters must return 400."""
-        for bad_id in ("IN_KA_01;rm -rf /", "IN_KA_01'", "IN/../etc"):
+        """zone_id containing injection/traversal characters must return 400/404/422."""
+        bad_ids = [
+            "IN_KA_01;rm -rf",    # semicolon (shell injection)
+            "IN_KA_01'",           # single-quote (SQL injection attempt)
+            "..%2Fetc%2Fpasswd",  # URL-encoded path traversal (decoded: ../../etc/passwd)
+            "IN_KA_01.extra",      # dot not in allowlist [A-Za-z0-9_-]
+            "<script>alert(1)",    # XSS probe
+        ]
+        for bad_id in bad_ids:
             response = api_client.post(
                 f"/zones/{bad_id}/observations",
                 headers=VALID_KEY,
                 data={"species_count": "1"},
             )
-            assert response.status_code in (400, 404, 422), f"Expected rejection for {bad_id!r}"
+            assert response.status_code in (400, 404, 422), (
+                f"Expected rejection for {bad_id!r}, got {response.status_code}"
+            )
 
 
 # ===========================================================================
@@ -473,8 +488,10 @@ class TestCSRFResistance:
     def test_no_cookie_session_auth_used(self):
         """Confirm the app uses no cookie-based session auth (no SessionMiddleware)."""
         import api as api_module
-        middleware_types = [
-            str(type(m)) for m in getattr(api_module.app, "middleware_stack", [])
+        # user_middleware is populated at class-definition time (unlike middleware_stack
+        # which is only built after the first request).
+        middleware_class_names = [
+            str(m.cls) for m in getattr(api_module.app, "user_middleware", [])
         ]
-        assert not any("session" in m.lower() for m in middleware_types), \
+        assert not any("session" in name.lower() for name in middleware_class_names), \
             "SessionMiddleware must not be used (would require CSRF protection)"

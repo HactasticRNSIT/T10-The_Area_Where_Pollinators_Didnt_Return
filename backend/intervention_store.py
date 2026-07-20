@@ -21,13 +21,14 @@ DEFAULT_DB_PATH = os.environ.get("HISTORY_DB_PATH", str(DATA_DIR / "polynexus_hi
 def _get_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path, timeout=10.0)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
     return conn
 
 
 def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
     """Initialise the interventions table (idempotent)."""
     with _get_connection(db_path) as conn:
+        # WAL mode: set once here — persists on the file, not repeated per-connection.
+        conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS interventions (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -135,5 +136,109 @@ def get_before_after(
         return None
 
 
+
 # Initialise DB on import
 init_db()
+
+
+# ── Task 7: Efficacy summary ──────────────────────────────────────────────────
+_EFFICACY_MIN_ROWS: int = 30  # data gate threshold
+
+
+def get_total_intervention_count(db_path: str = DEFAULT_DB_PATH) -> int:
+    """Return the total number of intervention records across all zones."""
+    try:
+        with _get_connection(db_path) as conn:
+            row = conn.execute("SELECT COUNT(*) FROM interventions").fetchone()
+            return row[0] if row else 0
+    except Exception as exc:
+        log.error("Failed to count interventions: %s", exc)
+        return 0
+
+
+def get_efficacy_summary(db_path: str = DEFAULT_DB_PATH) -> dict[str, Any]:
+    """
+    Compute an aggregate efficacy summary across all recorded interventions.
+
+    Data gate: returns ``{"data_sufficient": False, "total_records": N}`` when
+    fewer than 30 matched before/after pairs exist.
+
+    Returns
+    -------
+    dict with:
+        data_sufficient        : bool
+        total_records          : int   — all intervention rows in the DB
+        paired_records         : int   — interventions with both before & after run
+        mean_delta_activity    : float — average change in activity_score (paired only)
+        pct_improved           : float — fraction of paired records that improved (%)
+        per_intervention_type  : list[dict]  — breakdown by first word of intervention text
+    """
+    total = get_total_intervention_count(db_path)
+    if total < _EFFICACY_MIN_ROWS:
+        return {
+            "data_sufficient": False,
+            "total_records": total,
+            "message": (
+                f"Insufficient data: {total} intervention records found; "
+                f"at least {_EFFICACY_MIN_ROWS} are needed for a statistically "
+                f"meaningful efficacy estimate."
+            ),
+        }
+
+    try:
+        with _get_connection(db_path) as conn:
+            rows = conn.execute(
+                "SELECT id, zone_id, intervention FROM interventions"
+            ).fetchall()
+    except Exception as exc:
+        log.error("Efficacy query failed: %s", exc)
+        return {"data_sufficient": False, "total_records": total, "error": str(exc)}
+
+    deltas: list[float] = []
+    type_buckets: dict[str, list[float]] = {}
+
+    for row in rows:
+        ba = get_before_after(row["zone_id"], row["id"], db_path=db_path)
+        if not ba:
+            continue
+        delta = ba.get("delta_activity_score")
+        if delta is None:
+            continue
+        deltas.append(delta)
+        # Bucket by first word of intervention text as a rough category
+        category = (row["intervention"] or "unknown").split()[0].lower()
+        type_buckets.setdefault(category, []).append(delta)
+
+    paired = len(deltas)
+    if not paired:
+        return {
+            "data_sufficient": True,
+            "total_records": total,
+            "paired_records": 0,
+            "mean_delta_activity": None,
+            "pct_improved": None,
+            "per_intervention_type": [],
+            "message": "No paired before/after zone runs found yet.",
+        }
+
+    mean_delta = round(sum(deltas) / paired, 3)
+    pct_improved = round(100.0 * sum(1 for d in deltas if d > 0) / paired, 1)
+
+    per_type = [
+        {
+            "category": cat,
+            "count": len(vals),
+            "mean_delta": round(sum(vals) / len(vals), 3),
+            "pct_improved": round(100.0 * sum(1 for v in vals if v > 0) / len(vals), 1),
+        }
+        for cat, vals in sorted(type_buckets.items(), key=lambda x: -len(x[1]))
+    ]
+
+    return {
+        "data_sufficient": True,
+        "total_records": total,
+        "paired_records": paired,
+        "mean_delta_activity": mean_delta,
+        "pct_improved": pct_improved,
+        "per_intervention_type": per_type,
+    }

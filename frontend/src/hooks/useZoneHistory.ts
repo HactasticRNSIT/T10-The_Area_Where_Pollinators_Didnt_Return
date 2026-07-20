@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { useCachedFetch } from './useCachedFetch';
 import type { HistoryPoint } from '../types/api';
+import { API_KEY } from '../api/client';
 
-const API_HEADERS = { 'X-API-Key': 'test-api-key-123' };
+const API_HEADERS = { 'X-API-Key': API_KEY };
 
 export function useZoneHistory(zoneId?: string) {
   const key = zoneId ? `history:${zoneId}` : null;

@@ -1,6 +1,5 @@
-
-
 import argparse
+import asyncio
 import json
 import logging
 import sys
@@ -18,12 +17,38 @@ except ImportError:
 # Load environment variables (e.g., GROQ_API_KEY from .env) when python-dotenv is installed.
 load_dotenv(Path(__file__).parent / ".env")
 
+# Ensure backend directory is in sys.path so sibling modules can be imported
+sys.path.insert(0, str(Path(__file__).parent.resolve()))
+
 from ai_analyzer import get_ai_insights
 from anomaly_detector import detect_anomalies, has_ai_trigger_anomaly
 from data_fetcher import fetch_all
 from decision_engine import build_decision_brief
 from scorer import apply_anomaly_pressure, compute_all_scores
 from geo_classifier import resolve_agro_zone
+
+
+def _run_scoring(
+    raw: dict[str, Any],
+    zone_id: str,
+) -> tuple[dict[str, Any], list[dict[str, Any]], int, int]:
+    """CPU-bound scoring + anomaly detection. Runs in asyncio.to_thread so the
+    event loop is not blocked and can continue accepting / dispatching requests.
+    Returns (scores, anomalies, scorer_ms, anomaly_ms)."""
+    _t_score0 = time.monotonic()
+    scores = compute_all_scores(raw, zone_id=zone_id)
+    scorer_ms = round((time.monotonic() - _t_score0) * 1000)
+
+    _t_anom0 = time.monotonic()
+    anomalies = detect_anomalies(raw, zone_id=zone_id)
+    scores = apply_anomaly_pressure(
+        scores,
+        anomalies,
+        zone_id=zone_id,
+        geo_profile=raw.get("_meta", {}).get("geo_profile"),
+    )
+    anomaly_ms = round((time.monotonic() - _t_anom0) * 1000)
+    return scores, anomalies, scorer_ms, anomaly_ms
 
 # Suppress all library-level logging so stdout stays clean JSON
 logging.basicConfig(
@@ -98,29 +123,35 @@ async def analyse_zone(
     """
     # ── 1. Data Fetching ────────────────────────────────────────────────────
     _t0 = time.monotonic()
-    from data_fetcher import fetch_open_meteo, fetch_all
-    climate_data = await asyncio.to_thread(fetch_open_meteo, lat, lon)
-    geo_profile = resolve_agro_zone(lat, lon, climate_data)
-    
-    raw = await asyncio.to_thread(fetch_all, lat, lon, zone_id=zone_id, geo_profile=geo_profile)
+    # ── Task 8: Load Testing Mock Hook ────────────────────────────────────────
+    import os as _os
+    if _os.environ.get("POLYNEXUS_MOCK_EXTERNAL", "0") == "1":
+        log.warning("⚠️ MOCK MODE ACTIVE ⚠️ — POLYNEXUS_MOCK_EXTERNAL=1 is set. No real data will be fetched!")
+        from mock_data import get_full_mock_bundle
+        # In mock mode, skip resolve_agro_zone entirely (it would hit Nominatim/Groq).
+        # get_full_mock_bundle already embeds a usable geo_profile in _meta.
+        raw = get_full_mock_bundle(lat, lon)
+        raw["_meta"]["zone_id"] = zone_id
+        geo_profile = raw["_meta"]["geo_profile"]
+    else:
+        # 1. Fetch live data concurrently
+        from data_fetcher import fetch_open_meteo, fetch_all
+        climate_data = await asyncio.to_thread(fetch_open_meteo, lat, lon)
+        geo_profile = resolve_agro_zone(lat, lon, climate_data)
+        raw = await asyncio.to_thread(fetch_all, lat, lon, zone_id=zone_id, geo_profile=geo_profile)
 
     # Inject zone metadata so scorer sub-functions can read lat + zone_id
     # without changing every function signature in the hot path.
     raw["_meta"] = {"lat": lat, "lon": lon, "zone_id": zone_id, "geo_profile": geo_profile}
 
-    # ── 2. Scoring ──────────────────────────────────────────────────────────
-    scores = compute_all_scores(raw, zone_id=zone_id)
-
-    # ── 3. Anomaly Detection ─────────────────────────────────────────────────
-    anomalies = detect_anomalies(raw, zone_id=zone_id)
-    scores = apply_anomaly_pressure(
-        scores,
-        anomalies,
-        zone_id=zone_id,
-        geo_profile=raw.get("_meta", {}).get("geo_profile"),
+    # ── 2+3. Scoring + Anomaly Detection (in thread — never blocks event loop) ───
+    # These are CPU-bound steps (~20-50ms each) with no I/O. Running them on
+    # asyncio.to_thread means concurrent requests are processed in parallel by
+    # the thread pool rather than queuing behind each other on the event loop.
+    scores, anomalies, _scorer_ms, _anomaly_ms = await asyncio.to_thread(
+        _run_scoring, raw, zone_id
     )
-
-    # ── 4. AI Insights (conditional) ─────────────────────────────────────────
+    log.info("[timing] scorer zone=%s scorer_ms=%d anomaly_ms=%d", zone_id, _scorer_ms, _anomaly_ms)
     groq_called = has_ai_trigger_anomaly(anomalies)
     if groq_called:
         ai_result = await asyncio.to_thread(get_ai_insights, zone_id, lat, lon, scores, anomalies, raw)
@@ -190,11 +221,19 @@ async def analyse_zone(
     except Exception as exc:
         log.warning("Failed to record source health metrics: %s", exc)
 
-    try:
-        from history_store import save_run
-        await asyncio.to_thread(save_run, zone_id, output)
-    except Exception as exc:
-        log.error("Failed to save history run for zone %s: %s", zone_id, exc)
+    # ── 7. Non-blocking history write ─────────────────────────────────────────
+    # save_run is fire-and-forget: the client does not consume this data in the
+    # current response, so we never block on it. asyncio.create_task schedules
+    # the write on the event loop and returns immediately; the task runs after
+    # the response is sent. Errors are logged but do not affect the caller.
+    async def _bg_save_run(zid: str, out: dict) -> None:
+        try:
+            from history_store import save_run
+            await asyncio.to_thread(save_run, zid, out)
+        except Exception as _exc:
+            log.error("Background save_run failed zone=%s: %s", zid, _exc)
+
+    asyncio.create_task(_bg_save_run(zone_id, output))
 
     return output
 
@@ -245,6 +284,22 @@ def _build_output(
         # full float precision throughout the pipeline (change #4).
         "contribution_scores": {k: round(v, 2) for k, v in scores["contribution_scores"].items()},
 
+        # ── Explainability: ranked stress drivers ─────────────────────────────
+        # Sorted descending by raw stress so the frontend can render a
+        # "why this score" panel without recomputing anything client-side.
+        # interaction_penalty is a meta-value, not a named factor — excluded.
+        "top_stress_factors": [
+            {"factor": k.replace("_", " ").title(), "stress": round(v, 2)}
+            for k, v in sorted(
+                (
+                    (k, v) for k, v in scores["factor_scores"].items()
+                    if k != "interaction_penalty"
+                ),
+                key=lambda kv: kv[1],
+                reverse=True,
+            )
+        ],
+
         # ── Habitat ───────────────────────────────────────────────────────────
         "habitat_suitability_score": scores["habitat_suitability_score"],
 
@@ -258,6 +313,7 @@ def _build_output(
         "crop_risk": scores["crop_risk"],
         "crop_risk_details": scores.get("crop_risk_details", {}),
         "crop_dependency": {k: round(v, 2) for k, v in scores.get("crop_dependency", {}).items()},
+        "phenology_calendar": __import__("phenology")._get_windows_for_crops(list(scores.get("crop_dependency", {}).keys()), zone_id),
         "crop_weighted_stress": (
             round(scores["crop_weighted_stress"], 4)
             if scores.get("crop_weighted_stress") is not None else None
@@ -295,15 +351,13 @@ def _build_output(
             ),
         },
     }
-
-
-# ──────────────────────────────────────────────────────────────────────────────
 # CLI entry point
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Pollinator Ecosystem Analysis Pipeline",
+
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--zone_id", required=True, help="Unique zone identifier")
@@ -320,11 +374,11 @@ def _parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = _parse_args()
-    result = analyse_zone(
+    result = asyncio.run(analyse_zone(
         zone_id=args.zone_id,
         lat=args.lat,
         lon=args.lon,
-    )
+    ))
     indent = 2 if args.pretty else None
     sys.stdout.write(json.dumps(result, indent=indent, ensure_ascii=False))
     sys.stdout.write("\n")

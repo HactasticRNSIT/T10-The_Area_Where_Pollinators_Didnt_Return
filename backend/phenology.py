@@ -57,6 +57,15 @@ def _get_window(crop: str, zone_id: str) -> list[int] | None:
     return windows.get("IN")
 
 
+def _get_windows_for_crops(crops: list[str], zone_id: str) -> dict[str, list[int]]:
+    """Return a map of crop to its flowering window for the given zone."""
+    result = {}
+    for crop in crops:
+        window = _get_window(crop, zone_id)
+        if window:
+            result[crop] = window
+    return result
+
 def _in_window(month: int, window: list[int]) -> bool:
     """Return True if month is inside the [start, end] window (handles year wrap)."""
     start, end = window

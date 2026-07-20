@@ -1,0 +1,2 @@
+$env:POLYNEXUS_API_KEY="test-api-key-123"
+Start-Process -FilePath "c:\Users\sridh\OneDrive\Desktop\all projects\poly_nexus\backend\venv\Scripts\python.exe" -ArgumentList "-m", "uvicorn", "api:app", "--host", "127.0.0.1", "--port", "8000" -WorkingDirectory "c:\Users\sridh\OneDrive\Desktop\all projects\poly_nexus\backend" -NoNewWindow -RedirectStandardOutput "c:\Users\sridh\OneDrive\Desktop\all projects\poly_nexus\backend\uvicorn_stdout.log" -RedirectStandardError "c:\Users\sridh\OneDrive\Desktop\all projects\poly_nexus\backend\uvicorn_stderr.log"
