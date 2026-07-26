@@ -120,6 +120,7 @@ CONSTRAINTS:
 - Output ONLY the JSON object. No markdown fences, no preamble, no trailing text.
 - All values must be non-empty. pollination_boost_actions must be an array of 3 strings.
 - Do not hallucinate species or products not appropriate for the zone's geography.
+- If the zone is in India, explicitly recommend India-appropriate flowering border species (e.g., dhaincha, cowpea, marigold, sesame, sunn hemp) instead of European/temperate plants (e.g., phacelia, borage, clover, buckwheat, blackthorn).
 - Every output must help the farmer INCREASE yield through better pollination.
 
 EXAMPLE OUTPUT (for reference structure only — do not copy):
@@ -131,7 +132,7 @@ estimated 40% and directly raising mango fruit-set this season.",
 (Azadirachtin 1500 ppm, 3 mL/L water), applied after 6 PM only during the \
 next two flowering weeks — expected to increase fruit-set by 20–35%.",
   "pollination_boost_actions": [
-    "Plant 5-metre strips of phacelia or mustard on field borders to attract \
+    "Plant 5-metre strips of dhaincha or marigold on field borders to attract \
 native solitary bees within 3 weeks.",
     "Install 10 simple bee hotels (bamboo bundles) per hectare on south-facing \
 fences before next flowering flush.",
@@ -308,7 +309,7 @@ def _validate_ai_response(data: dict) -> dict:
 # Groq API caller — retries once with temperature=0 on validation failure
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _call_groq(user_content: str, attempt: int = 1) -> dict[str, str]:
+def _call_groq(user_content: str, zone_id: str, attempt: int = 1) -> dict[str, str]:
     """
     Call Groq and return a validated response dict.
     Retries once with temperature=0 if validation fails on attempt 1.
@@ -367,7 +368,15 @@ def _call_groq(user_content: str, attempt: int = 1) -> dict[str, str]:
         # Fix 1.5: reset under lock
         with _cb_lock:
             _cb_failures = 0
-        return result
+        
+        from anomaly_detector import _localize_action
+        final_result = {
+            "biodiversity_insight": result["biodiversity_insight"],
+            "top_intervention": _localize_action(result["top_intervention"], zone_id),
+            "pollination_boost_actions": [_localize_action(a, zone_id) for a in result["pollination_boost_actions"]]
+        }
+        return final_result
+
     except Exception as exc:
         if attempt == 2:  # Only trip circuit breaker on final attempt failure
             # Fix 1.5: read-modify-write under lock to prevent race corruption
@@ -386,6 +395,7 @@ def _call_groq(user_content: str, attempt: int = 1) -> dict[str, str]:
 def _rule_based_fallback(
     scores: dict[str, Any],
     anomalies: list[dict[str, Any]],
+    zone_id: str,
 ) -> dict[str, str]:
     """
     Rule-based fallback — frames outputs around increasing pollination and
@@ -443,11 +453,14 @@ def _rule_based_fallback(
     while len(boost_actions) < 3:
         boost_actions.append(_BOOST_FALLBACKS[len(boost_actions)])
 
-    return {
+    from anomaly_detector import _localize_action
+    
+    result = {
         "biodiversity_insight":      insight,
-        "top_intervention":          top_intervention,
-        "pollination_boost_actions": boost_actions[:3],
+        "top_intervention":          _localize_action(top_intervention, zone_id),
+        "pollination_boost_actions": [_localize_action(a, zone_id) for a in boost_actions[:3]],
     }
+    return result
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -474,7 +487,14 @@ def get_ai_insights(
         return {
             "biodiversity_insight": "Mock Groq Insight: Rapid decline in native bee visits correlates strongly with a recent unrecorded pesticide event in adjacent plots. Thermal stress is secondary.",
             "top_intervention": "Suspend broad-spectrum applications and restore un-mowed field margins to bridge the forage gap.",
-            "pollination_boost_actions": ["Deploy supplementary solitary bee nesting blocks", "Provide shallow clean water sources"],
+            # Fix (Item 5): mock branch previously only had 2 entries, violating the
+            # 3-item contract enforced by the system prompt, rule-based fallback, and
+            # healthy-zone-no-ai branch.  Added a third to match all other code paths.
+            "pollination_boost_actions": [
+                "Deploy supplementary solitary bee nesting blocks",
+                "Provide shallow clean water sources",
+                "Plant flowering border strips to attract native foraging bees",
+            ],
             "insight_source": "mock_groq"
         }
 
@@ -482,7 +502,7 @@ def get_ai_insights(
 
     for attempt in (1, 2):
         try:
-            result = _call_groq(user_content, attempt=attempt)
+            result = _call_groq(user_content, zone_id, attempt=attempt)
             result["insight_source"] = "groq"
             log.info("AI insights from Groq for zone %s (attempt %d)", zone_id, attempt)
             return result
@@ -493,7 +513,7 @@ def get_ai_insights(
                 " — retrying with temperature=0" if attempt == 1 else " — using rule-based fallback",
             )
 
-    fallback = _rule_based_fallback(scores, anomalies)
+    fallback = _rule_based_fallback(scores, anomalies, zone_id)
     fallback["insight_source"] = "rule_based_fallback"
     
     if polynexus_groq_fallback is not None:
